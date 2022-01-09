@@ -47,11 +47,11 @@ trait StatRepo {
     }
 
     fn crit_rate(&self) -> Unit<1, 1000> {
-        Unit(200 * (self.critical() - 400) / 1900 + 50)
+        Unit(50 + 200 * (self.critical() - 400) / 1900 )
     }
 
     fn det_multiplier(&self) -> Unit<1, 1000> {
-        Unit(140 * (self.determination() - 390) / 1900 + 1000)
+        Unit(1000 + 140 * (self.determination() - 390) / 1900)
     }
 
     fn dh_rate(&self) -> Unit<1, 1000> {
@@ -71,7 +71,7 @@ trait StatRepo {
     }
 
     fn magic_attack_power(&self) -> Unit<1, 100> {
-        Unit(165 * (self.mind() - 390) / 390 + 100)
+        Unit(195 * (self.mind() - 390) / 390 + 100)
     }
 
     fn crit_scalar(&self) -> Unit<1, 1000> {
