@@ -1,12 +1,4 @@
 slot;name;weapon_damage;mind;vitality;piety;direct_hit;critical;determination;spell_speed;stat_max;meld_slots;overmeldable
-Matéria X;DH X;;;;;36;;;;;;
-Matéria X;CRIT X;;;;;;36;;;;;
-Matéria X;DET X;;;;;;;36;;;;
-Matéria X;SPS X;;;;;;;;36;;;
-Matéria IX;DH IX;;;;;12;;;;;;
-Matéria IX;CRIT IX;;;;;;12;;;;;
-Matéria IX;DET IX;;;;;;;12;;;;
-Matéria IX;SPS IX;;;;;;;;12;;;
 Arme;Pendules de l'Asphodèle;120;304;288;;;188;269;;269;2;0
 Arme;Mein gwrac'h radieux amélioré;119;296;278;;;266;186;;266;2;0
 Arme;Mein gwrac'h;115;266;245;;;177;253;;253;2;1
