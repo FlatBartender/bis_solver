@@ -28,6 +28,10 @@ trait StatRepo {
     fn determination(&self) -> u32;
     fn spell_speed(&self) -> u32;
 
+    fn stat_max(&self) -> u32 {
+        vec![self.piety(), self.direct_hit(), self.critical(), self.determination(), self.spell_speed()].into_iter().max().unwrap()
+    }
+
     fn weapon_delay(&self) -> Unit<1, 100> {
         Unit(280)
     }
@@ -205,12 +209,15 @@ struct Item {
     slot: String,
     name: String,
     stats: Stats,
-    stat_max: u32,
     meld_slots: u32,
     overmeldable: u32,
 }
 
 impl Item {
+    fn stat_max(&self) -> u32 {
+        self.stats.stat_max()
+    }
+
     fn from_record(record: &csv::StringRecord) -> Result<Item, Box<dyn std::error::Error>> {
         let item = Item {
             slot: record.get(0).unwrap().to_string(),
@@ -225,9 +232,8 @@ impl Item {
                 determination: record.get(8).unwrap().parse().unwrap_or_default(),
                 spell_speed: record.get(9).unwrap().parse().unwrap_or_default()
             },
-            stat_max: record.get(10).unwrap().parse().unwrap_or_default(),
-            meld_slots: record.get(11).unwrap().parse().unwrap_or_default(),
-            overmeldable: record.get(12).unwrap().parse().unwrap_or_default(),
+            meld_slots: record.get(10).unwrap().parse().unwrap_or_default(),
+            overmeldable: record.get(11).unwrap().parse().unwrap_or_default(),
         };
 
         Ok(item)
@@ -261,7 +267,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             determination: 390,
             spell_speed: 400,
         },
-        stat_max: 0,
         meld_slots: 0,
         overmeldable: 0,
     }];
@@ -294,7 +299,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ].into_iter()
         .multi_cartesian_product();
 
-    let mut results: Vec<_> = product.filter_map(|vec_items| {
+    let mut results: Vec<_> = product
+        .par_bridge()
+        .filter_map(|vec_items| {
         if vec_items[10].name == vec_items[11].name && vec_items[10].overmeldable == 0 {
             return None;
         }
@@ -327,6 +334,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
+            let mut meld_x_slots = vec![0, 0, 0, 0];
+            let mut meld_ix_slots = vec![0, 0, 0, 0];
+            items.iter()
+                .for_each(|item| {
+                    let mut item_x_slots = vec![0, 0, 0, 0];
+                    let mut item_ix_slots = vec![0, 0, 0, 0];
+                    if item.overmeldable == 0 {
+                        item_x_slots[0] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).ceil() as u32);
+                        item_x_slots[1] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).ceil() as u32);
+                        item_x_slots[2] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
+                        item_x_slots[3] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
+                    } else {
+                        item_x_slots[0] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).ceil() as u32);
+                        item_x_slots[1] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).ceil() as u32);
+                        item_x_slots[2] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
+                        item_x_slots[3] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
+
+                        item_ix_slots[0] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).ceil() as u32);
+                        item_ix_slots[1] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).ceil() as u32);
+                        item_ix_slots[2] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
+                        item_ix_slots[3] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
+                    }
+
+                    for index in 0..4 {
+                        meld_x_slots[index] += item_x_slots[index];
+                        meld_ix_slots[index] += item_ix_slots[index];
+                    }
+                });
+
             let matérias_x_répartitions: Vec<_> = vec![
                 (0..=slots_matérias_x),
                 (0..=slots_matérias_x),
@@ -334,7 +370,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (0..=slots_matérias_x),
             ].into_iter()
                 .multi_cartesian_product()
-                .filter(|répartition| répartition.clone().into_iter().sum::<u32>() == slots_matérias_x)
+                .filter(|répartition| {
+                    répartition.clone().into_iter().sum::<u32>() == slots_matérias_x
+                        && répartition[0] <= meld_x_slots[0]
+                        && répartition[1] <= meld_x_slots[1]
+                        && répartition[2] <= meld_x_slots[2]
+                        && répartition[3] <= meld_x_slots[3]
+                })
                 .collect();
             let matérias_ix_répartitions: Vec<_> = vec![
                 (0..=slots_matérias_ix),
@@ -343,40 +385,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (0..=slots_matérias_ix),
             ].into_iter()
                 .multi_cartesian_product()
-                .filter(|répartition| répartition.clone().into_iter().sum::<u32>() == slots_matérias_ix)
+                .filter(|répartition| {
+                    répartition.clone().into_iter().sum::<u32>() == slots_matérias_ix
+                        && répartition[0] <= meld_ix_slots[0]
+                        && répartition[1] <= meld_ix_slots[1]
+                        && répartition[2] <= meld_ix_slots[2]
+                        && répartition[3] <= meld_ix_slots[3]
+                })
                 .collect();
 
             std::iter::once(items).cartesian_product(matérias_x_répartitions.into_iter()).cartesian_product(matérias_ix_répartitions.into_iter())
         })
         .map(|((items, meld_x), meld_ix)| (items, meld_x, meld_ix))
         .par_bridge()
-        .filter(|(items, meld_x, meld_ix)| {
-            let mut meld_caps = Stats::default();
-            let mut meld_ix_caps = Stats::default();
-            items.iter()
-                .for_each(|item| {
-                    if item.stat_max != 0 {
-                        meld_caps.critical += item.stat_max - item.stats.critical;
-                        meld_caps.determination += item.stat_max - item.stats.determination;
-                        meld_caps.direct_hit += item.stat_max - item.stats.direct_hit;
-                        meld_caps.spell_speed += item.stat_max - item.stats.spell_speed;
-                    }
-                    if item.stat_max != 0 && item.overmeldable == 1 {
-                        meld_ix_caps.critical += item.stat_max - item.stats.critical;
-                        meld_ix_caps.determination += item.stat_max - item.stats.determination;
-                        meld_ix_caps.direct_hit += item.stat_max - item.stats.direct_hit;
-                        meld_ix_caps.spell_speed += item.stat_max - item.stats.spell_speed;
-                    }
-                });
-            meld_x[0] * 36 <= meld_caps.critical
-                && meld_x[1] * 36 <= meld_caps.determination
-                && meld_x[2] * 36 <= meld_caps.direct_hit
-                && meld_x[3] * 36 <= meld_caps.spell_speed
-                && meld_ix[0] * 12 <= meld_ix_caps.critical
-                && meld_ix[1] * 12 <= meld_ix_caps.determination
-                && meld_ix[2] * 12 <= meld_ix_caps.direct_hit
-                && meld_ix[3] * 12 <= meld_ix_caps.spell_speed
-        })
         .map(|(items, meld_x, meld_ix)| {
             let stats = items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
             let stats = stats.add(&Stats {
@@ -393,7 +414,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     melds.sort_by(|(a_dps, _, _, _), (b_dps, _, _, _)| b_dps.partial_cmp(a_dps).unwrap());
 
 	println!("MELDED SETS");
-    for meld in &melds[0..100] {
+    for meld in &melds[0..10] {
         println!("    DPS: {}", meld.0);
         meld.1.iter()
             .for_each(|item| println!("        Item: {}", item.name));

@@ -1,37 +1,37 @@
-slot;name;weapon_damage;mind;vitality;piety;direct_hit;critical;determination;spell_speed;stat_max;meld_slots;overmeldable
-Arme;Pendules de l'Asphodèle;120;304;288;;;188;269;;269;2;0
-Arme;Mein gwrac'h radieux amélioré;119;296;278;;;266;186;;266;2;0
-Arme;Mein gwrac'h;115;266;245;;;177;253;;253;2;1
-Tête;Protège-tête de soigneur de l'Asphodèle;;180;169;113;;162;;;162;2;0
-Tête;Visière de soigneur radieuse améliorée;;180;169;;;;162;113;162;2;0
-Tête;Couronne de laurier de medicus classique;;161;149;;;154;108;;154;2;1
-Torse;Chiton de soigneur de l'Asphodèle;;285;269;;;180;257;;257;2;0
-Torse;Cotte de mailles de soigneur radieuse améliorée;;285;269;257;;;180;;257;2;0
-Torse;Chiton de medicus classique;;256;236;171;;;244;;244;2;1
-Mains;Poignets de soigneur de l'Asphodèle;;180;169;113;;;;162;162;2;0
-Mains;Gants de soigneur radieux améliorés;;180;169;;;162;113;;162;2;0
-Mains;Torques de poignets de medicus classiques;;161;149;;;108;;154;154;2;1
-Jambes;Pantalon de soigneur de l'Asphodèle;;285;269;257;;;180;;257;2;0
-Jambes;Fuseau de soigneur radieux amélioré;;285;269;;;180;257;;257;2;0
-Jambes;Pagne de medicus classique;;256;236;244;;;171;;244;2;1
-Pieds;Guêtres de soigneur de l'Asphodèle;;180;169;;;162;113;;162;2;0
-Pieds;Jambards de soigneur radieux améliorés;;180;169;162;;113;;;162;2;0
-Pieds;Caligae de medicus classiques;;161;149;;;154;108;;154;2;1
-Oreille;Boucles d'oreilles de soigneur de l'Asphodèle;;142;133;;;127;89;;127;2;0
-Oreille;Boucles d'oreilles de soigneur radieuses améliorées;;142;133;127;;89;;;127;2;0
-Oreille;Boucles d'oreilles de soigneur classiques ;;127;117;121;;;;85;121;1;1
-Collier;Collier de soigneur de l'Asphodèle;;142;133;127;;89;;;127;2;0
-Collier;Ras de cou de soigneur radieux amélioré;;142;133;;;127;;89;127;2;0
-Collier;Ras de cou de soigneur classique;;127;117;;;85;;121;121;1;1
-Bracelet;Amulette de soigneur de l'Asphodèle;;142;133;;;127;89;;127;2;0
-Bracelet;Bracelet de soigneur radieux amélioré;;142;133;89;;;127;;127;2;0
-Bracelet;Poignet de soigneur classique;;127;117;121;;85;;;121;1;1
-Bague;Bague de soigneur de l'Asphodèle;;142;133;;;89;127;;127;2;0
-Bague;Bague de soigneur radieuse améliorée;;142;133;89;;127;;;127;2;0
-Bague;Bague de soigneur classique ;;127;117;;;121;85;;121;1;1
-Nourriture;Sageburger;;;93;;90;;54;;;;
-Nourriture;Potage à la citrouille;;;93;;;54;90;;;;
-Nourriture;Jus de pêche;;;93;90;;;54;;;;
-Nourriture;Tarte à la pêche;;;93;54;;;;90;;;
-Nourriture;Biscuit au sycon;;;93;;54;;;90;;;
-Nourriture;Chai thavnairois;;;93;;;90;;54;;;
+slot;name;weapon_damage;mind;vitality;piety;direct_hit;critical;determination;spell_speed;meld_slots;overmeldable
+Arme;Pendules de l'Asphodèle;120;304;288;;;188;269;;2;0
+Arme;Mein gwrac'h radieux amélioré;119;296;278;;;266;186;;2;0
+Arme;Mein gwrac'h;115;266;245;;;177;253;;2;1
+Tête;Protège-tête de soigneur de l'Asphodèle;;180;169;113;;162;;;2;0
+Tête;Visière de soigneur radieuse améliorée;;180;169;;;;162;113;2;0
+Tête;Couronne de laurier de medicus classique;;161;149;;;154;108;;2;1
+Torse;Chiton de soigneur de l'Asphodèle;;285;269;;;180;257;;2;0
+Torse;Cotte de mailles de soigneur radieuse améliorée;;285;269;257;;;180;;2;0
+Torse;Chiton de medicus classique;;256;236;171;;;244;;2;1
+Mains;Poignets de soigneur de l'Asphodèle;;180;169;113;;;;162;2;0
+Mains;Gants de soigneur radieux améliorés;;180;169;;;162;113;;2;0
+Mains;Torques de poignets de medicus classiques;;161;149;;;108;;154;2;1
+Jambes;Pantalon de soigneur de l'Asphodèle;;285;269;257;;;180;;2;0
+Jambes;Fuseau de soigneur radieux amélioré;;285;269;;;180;257;;2;0
+Jambes;Pagne de medicus classique;;256;236;244;;;171;;2;1
+Pieds;Guêtres de soigneur de l'Asphodèle;;180;169;;;162;113;;2;0
+Pieds;Jambards de soigneur radieux améliorés;;180;169;162;;113;;;2;0
+Pieds;Caligae de medicus classiques;;161;149;;;154;108;;2;1
+Oreille;Boucles d'oreilles de soigneur de l'Asphodèle;;142;133;;;127;89;;2;0
+Oreille;Boucles d'oreilles de soigneur radieuses améliorées;;142;133;127;;89;;;2;0
+Oreille;Boucles d'oreilles de soigneur classiques ;;127;117;121;;;;85;1;1
+Collier;Collier de soigneur de l'Asphodèle;;142;133;127;;89;;;2;0
+Collier;Ras de cou de soigneur radieux amélioré;;142;133;;;127;;89;2;0
+Collier;Ras de cou de soigneur classique;;127;117;;;85;;121;1;1
+Bracelet;Amulette de soigneur de l'Asphodèle;;142;133;;;127;89;;2;0
+Bracelet;Bracelet de soigneur radieux amélioré;;142;133;89;;;127;;2;0
+Bracelet;Poignet de soigneur classique;;127;117;121;;85;;;1;1
+Bague;Bague de soigneur de l'Asphodèle;;142;133;;;89;127;;2;0
+Bague;Bague de soigneur radieuse améliorée;;142;133;89;;127;;;2;0
+Bague;Bague de soigneur classique ;;127;117;;;121;85;;1;1
+Nourriture;Sageburger;;;93;;90;;54;;;
+Nourriture;Potage à la citrouille;;;93;;;54;90;;;
+Nourriture;Jus de pêche;;;93;90;;;54;;;
+Nourriture;Tarte à la pêche;;;93;54;;;;90;;
+Nourriture;Biscuit au sycon;;;93;;54;;;90;;
+Nourriture;Chai thavnairois;;;93;;;90;;54;;
