@@ -8,13 +8,15 @@ impl<const NUMERATOR: u32, const DENOMINATOR: u32> Unit<NUMERATOR, DENOMINATOR> 
     fn scalar(&self) -> f64 {
         self.0 as f64 * NUMERATOR as f64 / DENOMINATOR as f64 
     }
+}
 
-    fn numerator(&self) -> u32 {
-        NUMERATOR
-    }
+trait Scalable {
+    fn scale<const NUMERATOR: u32, const DENOMINATOR: u32>(self, unit: Unit<NUMERATOR, DENOMINATOR>) -> Self;
+}
 
-    fn denominator(&self) -> u32 {
-        DENOMINATOR
+impl Scalable for u32 {
+    fn scale<const NUMERATOR: u32, const DENOMINATOR: u32>(self, unit: Unit<NUMERATOR, DENOMINATOR>) -> Self {
+        self * unit.0 * NUMERATOR / DENOMINATOR
     }
 }
 
@@ -85,7 +87,7 @@ trait StatRepo {
     }
 
     fn cycle_normal_gcd(&self) -> f64 {
-        ((30.0 - 2.5) / self.gcd().scalar()).floor()
+        ((30.0 - 2.5) / self.gcd().scalar()).round()
     }
 
     fn cycle_phlegma(&self) -> f64 {
@@ -116,18 +118,16 @@ trait StatRepo {
         let adj_wd = self.adjusted_weapon_damage();
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
-        let d1 = 330 * map.0 * map.numerator() / map.denominator() * det.0 * det.numerator() / det.denominator();
-        let d2 = d1 * adj_wd.0 * adj_wd.numerator() / adj_wd.denominator() * 130 / 100;
-        d2 as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        let damage = 330.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
     }
 
     fn phlegma_score(&self) -> f64 {
         let adj_wd = self.adjusted_weapon_damage();
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
-        let d1 = 510 * map.0 * map.numerator() / map.denominator() * det.0 * det.numerator() / det.denominator();
-        let d2 = d1 * adj_wd.0 * adj_wd.numerator() / adj_wd.denominator() * 130 / 100;
-        d2 as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        let damage = 510.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
     }
 
     fn eukr_dosis_score(&self) -> f64 {
@@ -135,11 +135,10 @@ trait StatRepo {
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
         let sps = self.sps_multiplier();
-        let ticks_lost_per_cast = (30.0 - self.cycle_length()) / 3.0;
+        let ticks_lost_per_cast = (30.0 - self.cycle_length()).abs() / 3.0;
         let expected_tick_number = 10.0 * (1.0 - ticks_lost_per_cast) + 9.0 * ticks_lost_per_cast;
-        let d1 = 70 * adj_wd.0 * adj_wd.numerator() / adj_wd.denominator() * map.0 * map.numerator() / map.denominator() * det.0 * det.numerator() / det.denominator();
-        let d2 = d1 * sps.0 * sps.numerator() / sps.denominator() * 130 / 100 + 1;
-        d2 as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar() * expected_tick_number
+        let damage = 70.scale(adj_wd).scale(map).scale(det).scale(sps) * 130 / 100 + 1;
+        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar() * expected_tick_number
     }
 
     fn dps(&self) -> f64 {
@@ -242,7 +241,7 @@ impl Item {
 
 const ITEMS: &str = include_str!("items.csv");
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
     let csv_reader = csv::ReaderBuilder::new()
         .delimiter(b';')
         .quoting(false)
@@ -312,9 +311,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     results.sort_by(|(a_dps, _), (b_dps, _)| b_dps.partial_cmp(a_dps).unwrap());
     results.dedup_by(|(a_dps, _), (b_dps, _)| a_dps == b_dps);
 
-    let candidates: Vec<_> = results[0..10].iter().cloned().collect();
+    let candidates: Vec<_> = results[..100].iter().cloned().collect();
 
-	println!("CANDIDATE SETS, PRE-MELD");
+    println!("CANDIDATE SETS, PRE-MELD");
     for candidate in candidates.iter(){
         println!("    DPS: {}", candidate.0);
         candidate.1.iter()
@@ -424,4 +423,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn main() {
+    calc_sets().unwrap();
 }
