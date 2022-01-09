@@ -141,6 +141,12 @@ trait StatRepo {
         damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar() * expected_tick_number
     }
 
+    fn pps(&self) -> f64 {
+        self.dosis_aps() * 330.0
+            + self.phlegma_aps() * 510.0
+            + self.eukr_dosis_aps() * 700.0
+    }
+
     fn dps(&self) -> f64 {
         self.dosis_aps() * self.dosis_score()
         + self.phlegma_aps() * self.phlegma_score()
@@ -258,7 +264,7 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
         name: "Sage base".to_string(),
         stats: Stats {
             weapon_damage: 0,
-            mind: 390,
+            mind: 448,
             vitality: 390,
             piety: 390,
             direct_hit: 400,
@@ -412,14 +418,25 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
 
     melds.sort_by(|(a_dps, _, _, _), (b_dps, _, _, _)| b_dps.partial_cmp(a_dps).unwrap());
 
-	println!("MELDED SETS");
+    println!("MELDED SETS");
     for meld in &melds[0..10] {
         println!("    DPS: {}", meld.0);
+        let mut stats = Stats::default();
         meld.1.iter()
-            .for_each(|item| println!("        Item: {}", item.name));
+            .for_each(|item| {
+                stats = stats.add(&item.stats);
+                println!("        Item: {}", item.name)
+            });
+        stats.critical += meld.2[0] * 36 + meld.3[0] * 12;
+        stats.determination += meld.2[1] * 36 + meld.3[1] * 12;
+        stats.direct_hit += meld.2[2] * 36 + meld.3[2] * 12;
+        stats.spell_speed += meld.2[3] * 36 + meld.3[3] * 12;
         println!("        Melds: {} CRT X, {} DET X, {} DH X, {} SPS X, {} CRT IX, {} DET IX, {} DH IX, {} SPS IX",
             meld.2[0], meld.2[1], meld.2[2], meld.2[3],
             meld.3[0], meld.3[1], meld.3[2], meld.3[3]);
+        println!("        GCD: {}, crit rate: {}, crit damage: {}, DH rate: {}, PPS: {}",
+            stats.gcd().scalar(), stats.crit_rate().scalar(), stats.crit_multiplier().scalar(), stats.dh_rate().scalar(), stats.pps());
+        println!("{:?}", stats);
     }
 
     Ok(())
