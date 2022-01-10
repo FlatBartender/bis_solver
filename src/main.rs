@@ -20,6 +20,16 @@ impl Scalable for u32 {
     }
 }
 
+impl Scalable for f64 {
+    fn scale<const NUMERATOR: u32, const DENOMINATOR: u32>(self, unit: Unit<NUMERATOR, DENOMINATOR>) -> Self {
+        self * (unit.0 * NUMERATOR / DENOMINATOR) as f64
+    }
+}
+
+const DOSIS_POTENCY: u32 = 330;
+const PHLEGMA_POTENCY: u32 = 510;
+const EUKRASIAN_DOSIS_POTENCY: u32 = 70;
+
 trait StatRepo {
     fn weapon_damage(&self) -> u32;
     fn mind(&self) -> u32;
@@ -154,6 +164,57 @@ trait StatRepo {
     }
 }
 
+trait StatRepoBalance: StatRepo {
+    fn PhlegmaB(&self) -> f64 {
+        (PHLEGMA_POTENCY - DOSIS_POTENCY) as f64 * self.cycle() / 45.0
+    }
+
+    fn PhlegmaTime(&self) -> f64 {
+        self.gcd().scalar() * (self.cycle() / 45.0 - 4.0)
+    }
+
+    fn getP(&self) -> f64 {
+        let cycle = self.cycle() + self.PhlegmaTime();
+
+        let mut result = self.PhlegmaB() / self.cycle() * cycle;
+
+        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.gcd().scalar()).floor() * self.gcd().scalar()) * (self.gcd().scalar() - 27.5 % self.gcd().scalar())) {
+            result += 6.0*(27.5/self.gcd().scalar()).ceil() * DOSIS_POTENCY as f64;
+            result += 6.0*10.0*self.sps_multiplier().scalar() * EUKRASIAN_DOSIS_POTENCY as f64;
+        } else {
+            result += 6.0*(27.5/self.gcd().scalar()).floor() * DOSIS_POTENCY as f64;
+            result += 6.0*9.0*self.sps_multiplier().scalar() * EUKRASIAN_DOSIS_POTENCY as f64;
+            result += 6.0*((3.0-(30.0 % self.gcd().scalar()))/3.0)*self.sps_multiplier().scalar()*EUKRASIAN_DOSIS_POTENCY as f64;
+        }
+
+        result / cycle
+    }
+
+    fn cycle(&self) -> f64 {
+        let mut result = 0.0;
+        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.gcd().scalar()).floor() * self.gcd().scalar()) * (self.gcd().scalar() - 27.5 % self.gcd().scalar())) {
+            result += 6.0*((27.5/self.gcd().scalar()).ceil() * self.gcd().scalar() + 2.5);
+        } else {
+            result += 6.0*((27.5/self.gcd().scalar()).floor() * self.gcd().scalar() + 2.5);
+        }
+
+        result
+    }
+
+    fn CritRate(&self) -> f64 {
+        (200.0 * (self.critical() as f64 - 400.0) / 1900.0 + 50.0).floor() / 1000.0
+    }
+
+    fn CritDamage(&self) -> f64 {
+        (200.0 * (self.critical() as f64 - 400.0) / 1900.0 + 400.0).floor() / 1000.0
+    }
+
+    fn balance_dps(&self) -> f64 {
+        let damage = (((self.getP() * self.adjusted_weapon_damage().0 as f64 * self.magic_attack_power().scalar()).floor() * self.det_multiplier().scalar()).floor() * 130.0 / 10000.0).floor() ;
+        damage * (1.0 + self.dh_rate().scalar() / 4.0) * (1.0 + self.CritRate() * self.CritDamage())
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 struct Stats {
     weapon_damage: u32,
@@ -178,6 +239,15 @@ impl Stats {
             determination: self.determination + other.determination,
             spell_speed: self.spell_speed + other.spell_speed,
         }
+    }
+
+    fn apply_food(&mut self, food: &Item) {
+        self.critical += food.stats.critical.min(self.critical / 10);
+        self.direct_hit += food.stats.direct_hit.min(self.direct_hit / 10);
+        self.determination += food.stats.determination.min(self.determination / 10);
+        self.spell_speed += food.stats.spell_speed.min(self.spell_speed / 10);
+        self.vitality += food.stats.vitality.min(self.vitality / 10);
+        self.piety += food.stats.piety.min(self.piety / 10);
     }
 }
 
@@ -206,6 +276,10 @@ impl StatRepo for Stats {
     fn spell_speed(&self) -> u32 {
         self.spell_speed
     }
+}
+
+impl StatRepoBalance for Stats {
+
 }
 
 
@@ -300,7 +374,6 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
             bracelet.clone().into_iter(),
             bague.clone().into_iter(),
             bague.clone().into_iter(),
-            nourriture.clone().into_iter(),
         ].into_iter()
         .multi_cartesian_product();
 
@@ -319,7 +392,7 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
 
     let candidates: Vec<_> = results[..100].iter().cloned().collect();
 
-    println!("CANDIDATE SETS, PRE-MELD");
+    println!("CANDIDATE SETS, PRE-MELD, PRE FOOD");
     for candidate in candidates.iter(){
         println!("    DPS: {}", candidate.0);
         candidate.1.iter()
@@ -356,10 +429,10 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
                         item_x_slots[2] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
                         item_x_slots[3] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
 
-                        item_ix_slots[0] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).ceil() as u32);
-                        item_ix_slots[1] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).ceil() as u32);
-                        item_ix_slots[2] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
-                        item_ix_slots[3] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
+                        item_ix_slots[0] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 12.0).ceil() as u32);
+                        item_ix_slots[1] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 12.0).ceil() as u32);
+                        item_ix_slots[2] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 12.0).ceil() as u32);
+                        item_ix_slots[3] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 12.0).ceil() as u32);
                     }
 
                     for index in 0..4 {
@@ -399,43 +472,47 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect();
 
-            std::iter::once(items).cartesian_product(matérias_x_répartitions.into_iter()).cartesian_product(matérias_ix_répartitions.into_iter())
+            std::iter::once(items).cartesian_product(nourriture.iter()).cartesian_product(matérias_x_répartitions.into_iter()).cartesian_product(matérias_ix_répartitions.into_iter())
         })
-        .map(|((items, meld_x), meld_ix)| (items, meld_x, meld_ix))
+        .map(|(((items, food), meld_x), meld_ix)| (items, food, meld_x, meld_ix))
         .par_bridge()
-        .map(|(items, meld_x, meld_ix)| {
+        .map(|(items, food, meld_x, meld_ix)| {
             let stats = items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
-            let stats = stats.add(&Stats {
+            let mut stats = stats.add(&Stats {
                 critical: meld_x[0] * 36 + meld_ix[0] * 12,
                 determination: meld_x[1] * 36 + meld_ix[1] * 12,
                 direct_hit: meld_x[2] * 36 + meld_ix[2] * 12,
                 spell_speed: meld_x[3] * 36 + meld_ix[3] * 12,
                 ..Stats::default()
             });
-            (stats.dps(), items, meld_x, meld_ix)
+            stats.apply_food(food);
+            (stats.dps(), items, food, meld_x, meld_ix)
         })
         .collect();
 
-    melds.sort_by(|(a_dps, _, _, _), (b_dps, _, _, _)| b_dps.partial_cmp(a_dps).unwrap());
+    melds.sort_by(|(a_dps, _, _, _, _), (b_dps, _, _, _, _)| b_dps.partial_cmp(a_dps).unwrap());
 
     println!("MELDED SETS");
-    for meld in &melds[0..10] {
-        println!("    DPS: {}", meld.0);
-        let mut stats = Stats::default();
-        meld.1.iter()
+    for (_, items, food, melds_x, melds_ix) in &melds[0..10] {
+        let mut stats = items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
+        stats.apply_food(food);
+        stats.critical += melds_x[0] * 36 + melds_ix[0] * 12;
+        stats.determination += melds_x[1] * 36 + melds_ix[1] * 12;
+        stats.direct_hit += melds_x[2] * 36 + melds_ix[2] * 12;
+        stats.spell_speed += melds_x[3] * 36 + melds_ix[3] * 12;
+
+        println!("    DPS: {}", stats.dps());
+        items.iter()
             .for_each(|item| {
-                stats = stats.add(&item.stats);
-                println!("        Item: {}", item.name)
+                println!("        Item: {}", item.name);
             });
-        stats.critical += meld.2[0] * 36 + meld.3[0] * 12;
-        stats.determination += meld.2[1] * 36 + meld.3[1] * 12;
-        stats.direct_hit += meld.2[2] * 36 + meld.3[2] * 12;
-        stats.spell_speed += meld.2[3] * 36 + meld.3[3] * 12;
+        println!("        Food: {}", food.name);
+        
         println!("        Melds: {} CRT X, {} DET X, {} DH X, {} SPS X, {} CRT IX, {} DET IX, {} DH IX, {} SPS IX",
-            meld.2[0], meld.2[1], meld.2[2], meld.2[3],
-            meld.3[0], meld.3[1], meld.3[2], meld.3[3]);
-        println!("        GCD: {}, crit rate: {}, crit damage: {}, DH rate: {}, PPS: {}",
-            stats.gcd().scalar(), stats.crit_rate().scalar(), stats.crit_multiplier().scalar(), stats.dh_rate().scalar(), stats.pps());
+            melds_x[0], melds_x[1], melds_x[2], melds_x[3],
+            melds_ix[0], melds_ix[1], melds_ix[2], melds_ix[3]);
+        println!("        GCD: {}, crit rate: {}, crit damage: {}, DH rate: {}",
+            stats.gcd().scalar(), stats.crit_rate().scalar(), stats.crit_multiplier().scalar(), stats.dh_rate().scalar());
         println!("{:?}", stats);
     }
 
