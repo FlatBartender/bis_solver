@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use rayon::prelude::*;
+use log::*;
 
 
 struct Unit<const NUMERATOR: u32, const DENOMINATOR: u32>(u32);
@@ -249,6 +250,13 @@ impl Stats {
         self.vitality += food.stats.vitality.min(self.vitality / 10);
         self.piety += food.stats.piety.min(self.piety / 10);
     }
+
+    fn apply_materias(&mut self, materias_x: &MatX, materias_ix: &MatIX) {
+        self.critical += materias_x[MeldType::CRITICAL as usize] * 36 + materias_ix[MeldType::CRITICAL as usize] * 12;
+        self.determination += materias_x[MeldType::DETERMINATION as usize] * 36 + materias_ix[MeldType::DETERMINATION as usize] * 12;
+        self.direct_hit += materias_x[MeldType::DIRECTHIT as usize] * 36 + materias_ix[MeldType::DIRECTHIT as usize] * 12;
+        self.spell_speed += materias_x[MeldType::SPELLSPEED as usize] * 36 + materias_ix[MeldType::SPELLSPEED as usize] * 12;
+    }
 }
 
 impl StatRepo for Stats {
@@ -292,6 +300,87 @@ struct Item {
     overmeldable: u32,
 }
 
+enum ItemSlot {
+    WEAPON = 0,
+    HEAD,
+    BODY,
+    HANDS,
+    LEGS,
+    FEET,
+    EARRINGS,
+    NECKLACE,
+    BRACELETS,
+    LEFTRING,
+    RIGHTRING,
+}
+
+enum MeldType {
+    CRITICAL = 0,
+    DETERMINATION,
+    DIRECTHIT,
+    SPELLSPEED,
+}
+
+type MatX = [u32; 4];
+type MatIX = [u32; 4];
+
+const SAGE_BASE: Stats = Stats {
+    weapon_damage: 0,
+    mind: 448,
+    vitality: 390,
+    piety: 390,
+    direct_hit: 400,
+    critical: 400,
+    determination: 390,
+    spell_speed: 400,
+};
+
+struct Gearset {
+    base: Stats,
+    items: [Item; 11],
+    food: Item,
+    melds_x: MatX,
+    melds_ix: MatIX,
+}
+
+impl Gearset {
+    fn stats(&self) -> Stats {
+        let mut stats = self.items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
+        stats.add(&self.base);
+        stats.apply_food(&self.food);
+        stats.apply_materias(&self.melds_x, &self.melds_ix);
+        stats
+    }
+
+    fn possible_melds(&self) -> (MatX, MatIX) {
+        use MeldType::*;
+
+        let mut slots_x = MatX::default();
+        let mut slots_ix = MatIX::default();
+
+        for item in self.items.iter() {
+            if item.overmeldable == 0 {
+                slots_x[CRITICAL as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
+                slots_x[DETERMINATION as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
+                slots_x[DIRECTHIT as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
+                slots_x[SPELLSPEED as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
+            } else {
+                slots_x[CRITICAL as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
+                slots_x[DETERMINATION as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
+                slots_x[DIRECTHIT as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
+                slots_x[SPELLSPEED as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
+
+                slots_ix[CRITICAL as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 12.0).round() as u32);
+                slots_ix[DETERMINATION as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 12.0).round() as u32);
+                slots_ix[DIRECTHIT as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 12.0).round() as u32);
+                slots_ix[SPELLSPEED as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 12.0).round() as u32);
+            }
+        }
+
+        (slots_x, slots_ix)
+    }
+}
+
 impl Item {
     fn stat_max(&self) -> u32 {
         self.stats.stat_max()
@@ -321,7 +410,7 @@ impl Item {
 
 const ITEMS: &str = include_str!("items.csv");
 
-fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error::Error>> {
+fn load_items() -> Result<Vec<Item>, Box<dyn std::error::Error>> {
     let csv_reader = csv::ReaderBuilder::new()
         .delimiter(b';')
         .quoting(false)
@@ -329,11 +418,15 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
 
     let records: Vec<_> = csv_reader.into_records()
         .collect::<Result<_, _>>()?;
-    let items: Vec<Item> = records.into_iter()
+    records.into_iter()
         .map(|record| Item::from_record(&record))
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, _>>()
+}
 
+fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error::Error>> {
     println!("Ranking gear sets...");
+
+    let items = load_items()?;
 
     let base: Vec<_> = vec![Item {
         slot: "Base".to_string(),
@@ -516,7 +609,157 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
+fn tui() -> Result<(), Box<dyn std::error::Error>> {
+    use cursive::{Cursive, CursiveExt};
+    use cursive::view::*;
+    use cursive::views::*;
+    use cursive::align::*;
+    use cursive::traits::*;
+
+    let items = load_items()?;
+    let mut siv = Cursive::new();
+    cursive::logger::init();
+
+    siv.add_global_callback('q', |s| s.quit());
+    siv.add_global_callback('p', Cursive::toggle_debug_console);
+
+    fn on_select_item(s: &mut Cursive, item: &Item) {
+        let items: &mut Vec<Item> = s.user_data().unwrap();
+
+        items.retain(|elem| elem.slot != item.slot);
+        items.push(item.clone());
+
+        let mut stats = items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
+        s.call_on_name("Nourriture", |view: &mut SelectView<Item>| {
+            warn!("NOURRITURE");
+            stats.apply_food(&view.selection().unwrap());
+        });
+        s.call_on_name("WD", |view: &mut TextView| view.set_content(format!("{}", stats.weapon_damage)));
+        s.call_on_name("MND", |view: &mut TextView| view.set_content(format!("{}", stats.mind)));
+        s.call_on_name("DH", |view: &mut TextView| view.set_content(format!("{}", stats.direct_hit)));
+        s.call_on_name("Crit", |view: &mut TextView| view.set_content(format!("{}", stats.critical)));
+        s.call_on_name("Det", |view: &mut TextView| view.set_content(format!("{}", stats.determination)));
+        s.call_on_name("SpS", |view: &mut TextView| view.set_content(format!("{}", stats.spell_speed)));
+        s.call_on_name("Pie", |view: &mut TextView| view.set_content(format!("{}", stats.piety)));
+        s.call_on_name("GCD", |view: &mut TextView| view.set_content(format!("{:2}", stats.gcd().scalar())));
+        s.call_on_name("Crit Rate", |view: &mut TextView| view.set_content(format!("{:.2}", stats.crit_rate().scalar())));
+        s.call_on_name("Crit Mult", |view: &mut TextView| view.set_content(format!("{:.3}", stats.crit_multiplier().scalar())));
+        s.call_on_name("DH Rate", |view: &mut TextView| view.set_content(format!("{:.3}", stats.dh_rate().scalar())));
+        s.call_on_name("PPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.getP())));
+        s.call_on_name("DPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.balance_dps())));
+    }
+
+    let mut selects: Vec<_> = vec!["Arme", "Tête", "Torse", "Mains", "Jambes", "Pieds", "Oreille", "Collier", "Bracelet", "Bague", "Bague"].into_iter()
+        .map(|category| {
+            let mut select = SelectView::new();
+            items.iter().filter(|item| item.slot == category).for_each(|item| select.add_item(item.name.to_string(), item.clone()));
+            select.set_on_select(on_select_item);
+
+            Dialog::around(LinearLayout::horizontal()
+                .child(PaddedView::lrtb(0, 2, 0, 0, TextView::new(category).v_align(VAlign::Center)))
+                .child(select.with_name("item")))
+        }).collect();
+    
+    //let mut Nourriture_select = SelectView::new().h_align(HAlign::Left);
+    //items.iter().filter(|item| item.slot == "Nourriture").for_each(|item| Nourriture_select.add_item(item.name.to_string(), item.clone()));
+
+    //Arme_select.set_on_submit(|s, time| {
+    //    s.pop_layer();
+    //    let text = format!("You will wait for {} minutes...", time);
+    //    s.add_layer(
+    //        Dialog::around(TextView::new(text)).button("Quit", |s| s.quit()),
+    //    );
+    //});
+
+    let selects_right = selects.split_off(selects.len() / 2 + 1);
+
+    let mut siv = Cursive::new();
+    let mut set = vec![Item {
+        slot: "Base".to_string(),
+        name: "Sage base".to_string(),
+        stats: Stats {
+            weapon_damage: 0,
+            mind: 448,
+            vitality: 390,
+            piety: 390,
+            direct_hit: 400,
+            critical: 400,
+            determination: 390,
+            spell_speed: 400,
+        },
+        meld_slots: 0,
+        overmeldable: 0,
+    }];
+    vec!["Arme", "Tête", "Torse", "Mains", "Jambes", "Pieds", "Oreille", "Collier", "Bracelet", "Bague", "Bague"].into_iter()
+        .for_each(|category| {
+            set.push(items.iter().find(|item| item.slot == category).unwrap().clone());
+        });
+
+
+    let mut left = LinearLayout::vertical();
+    selects.into_iter()
+        .for_each(|select| left.add_child(select));
+    let mut right = LinearLayout::vertical();
+    selects_right.into_iter()
+        .for_each(|select| right.add_child(select));
+    
+    let select_food = Dialog::around(LinearLayout::horizontal()
+        .child(PaddedView::lrtb(0, 2, 0, 0, TextView::new("Nourriture").v_align(VAlign::Center)))
+        .child(
+            SelectView::new()
+                .with_all(items.clone().into_iter().filter(|item| item.slot == "Nourriture").map(|item| (item.name.clone(), item.clone())))
+                .on_select(on_select_item)
+                .with_name("Nourriture")
+        ));
+
+    right.add_child(select_food);
+
+    let gear = LinearLayout::horizontal()
+        .child(left)
+        .child(right);
+
+    let mut stats = LinearLayout::horizontal();
+    vec!["WD", "MND", "DH", "Crit", "Det", "SpS", "Pie", "GCD", "Crit Rate", "Crit Mult", "DH Rate", "PPS", "DPS"].into_iter()
+        .for_each(|stat| {
+           stats.add_child(Dialog::around(LinearLayout::vertical()
+                .child(TextView::new(stat))
+                .child(TextView::new("0").with_name(stat))))
+        });
+
+    let main = LinearLayout::vertical()
+        .child(gear)
+        .child(stats.with_name("stats"));
+    siv.add_layer(main);
+
+    siv.call_on_all_named("item", |select: &mut SelectView| {
+        select.set_selection(0);
+    });
+
+    let mut stats = set.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
+    stats.apply_food(items.iter().find(|item| item.slot == "Nourriture").unwrap());
+    siv.call_on_name("WD", |view: &mut TextView| view.set_content(format!("{}", stats.weapon_damage)));
+    siv.call_on_name("MND", |view: &mut TextView| view.set_content(format!("{}", stats.mind)));
+    siv.call_on_name("DH", |view: &mut TextView| view.set_content(format!("{}", stats.direct_hit)));
+    siv.call_on_name("Crit", |view: &mut TextView| view.set_content(format!("{}", stats.critical)));
+    siv.call_on_name("Det", |view: &mut TextView| view.set_content(format!("{}", stats.determination)));
+    siv.call_on_name("SpS", |view: &mut TextView| view.set_content(format!("{}", stats.spell_speed)));
+    siv.call_on_name("Pie", |view: &mut TextView| view.set_content(format!("{}", stats.piety)));
+    siv.call_on_name("GCD", |view: &mut TextView| view.set_content(format!("{:2}", stats.gcd().scalar())));
+    siv.call_on_name("Crit Rate", |view: &mut TextView| view.set_content(format!("{:.2}", stats.crit_rate().scalar())));
+    siv.call_on_name("Crit Mult", |view: &mut TextView| view.set_content(format!("{:.3}", stats.crit_multiplier().scalar())));
+    siv.call_on_name("DH Rate", |view: &mut TextView| view.set_content(format!("{:.3}", stats.dh_rate().scalar())));
+    siv.call_on_name("PPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.getP())));
+    siv.call_on_name("DPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.balance_dps())));
+
+    siv.set_user_data(set);
+
+    siv.run();
+
+    Ok(())
+}
+
 fn main() {
     //calc_sets(Stats::balance_dps).unwrap();
-    calc_sets(Stats::dps).unwrap();
+    //calc_sets(Stats::dps).unwrap();
+    tui().unwrap();
 }
