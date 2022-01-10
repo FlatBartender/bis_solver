@@ -321,7 +321,7 @@ impl Item {
 
 const ITEMS: &str = include_str!("items.csv");
 
-fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
+fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error::Error>> {
     let csv_reader = csv::ReaderBuilder::new()
         .delimiter(b';')
         .quoting(false)
@@ -332,6 +332,8 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
     let items: Vec<Item> = records.into_iter()
         .map(|record| Item::from_record(&record))
         .collect::<Result<Vec<_>, _>>()?;
+
+    println!("Ranking gear sets...");
 
     let base: Vec<_> = vec![Item {
         slot: "Base".to_string(),
@@ -383,7 +385,7 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
         if vec_items[10].name == vec_items[11].name && vec_items[10].overmeldable == 0 {
             return None;
         }
-        let dps = vec_items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats)).dps();
+        let dps = dps_function(&vec_items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats)));
         Some((dps, vec_items))
     }).collect();
 
@@ -392,12 +394,7 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
 
     let candidates: Vec<_> = results[..100].iter().cloned().collect();
 
-    println!("CANDIDATE SETS, PRE-MELD, PRE FOOD");
-    for candidate in candidates.iter(){
-        println!("    DPS: {}", candidate.0);
-        candidate.1.iter()
-            .for_each(|item| println!("        Item: {}", item.name));
-    }
+    println!("Ranking food/melds...");
 
     let mut melds: Vec<_> = candidates.iter()
         .map(|(_, items)| items)
@@ -419,20 +416,20 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
                     let mut item_x_slots = vec![0, 0, 0, 0];
                     let mut item_ix_slots = vec![0, 0, 0, 0];
                     if item.overmeldable == 0 {
-                        item_x_slots[0] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).ceil() as u32);
-                        item_x_slots[1] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).ceil() as u32);
-                        item_x_slots[2] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
-                        item_x_slots[3] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
+                        item_x_slots[0] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
+                        item_x_slots[1] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
+                        item_x_slots[2] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
+                        item_x_slots[3] = item.meld_slots.min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
                     } else {
-                        item_x_slots[0] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).ceil() as u32);
-                        item_x_slots[1] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).ceil() as u32);
-                        item_x_slots[2] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).ceil() as u32);
-                        item_x_slots[3] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).ceil() as u32);
+                        item_x_slots[0] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
+                        item_x_slots[1] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
+                        item_x_slots[2] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
+                        item_x_slots[3] = (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
 
-                        item_ix_slots[0] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 12.0).ceil() as u32);
-                        item_ix_slots[1] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 12.0).ceil() as u32);
-                        item_ix_slots[2] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 12.0).ceil() as u32);
-                        item_ix_slots[3] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 12.0).ceil() as u32);
+                        item_ix_slots[0] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 12.0).round() as u32);
+                        item_ix_slots[1] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 12.0).round() as u32);
+                        item_ix_slots[2] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 12.0).round() as u32);
+                        item_ix_slots[3] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 12.0).round() as u32);
                     }
 
                     for index in 0..4 {
@@ -486,14 +483,14 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
                 ..Stats::default()
             });
             stats.apply_food(food);
-            (stats.dps(), items, food, meld_x, meld_ix)
+            (dps_function(&stats), items, food, meld_x, meld_ix)
         })
         .collect();
 
     melds.sort_by(|(a_dps, _, _, _, _), (b_dps, _, _, _, _)| b_dps.partial_cmp(a_dps).unwrap());
 
     println!("MELDED SETS");
-    for (_, items, food, melds_x, melds_ix) in &melds[0..10] {
+    for (_, items, food, melds_x, melds_ix) in &melds[0..100] {
         let mut stats = items.iter().fold(Stats::default(), |acc, item| acc.add(&item.stats));
         stats.apply_food(food);
         stats.critical += melds_x[0] * 36 + melds_ix[0] * 12;
@@ -501,7 +498,7 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
         stats.direct_hit += melds_x[2] * 36 + melds_ix[2] * 12;
         stats.spell_speed += melds_x[3] * 36 + melds_ix[3] * 12;
 
-        println!("    DPS: {}", stats.dps());
+        println!("    DPS: {}", dps_function(&stats));
         items.iter()
             .for_each(|item| {
                 println!("        Item: {}", item.name);
@@ -520,5 +517,6 @@ fn calc_sets() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
-    calc_sets().unwrap();
+    //calc_sets(Stats::balance_dps).unwrap();
+    calc_sets(Stats::dps).unwrap();
 }
