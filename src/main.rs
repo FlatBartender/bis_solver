@@ -752,7 +752,7 @@ fn tui() -> Result<(), Box<dyn std::error::Error>> {
         .for_each(|select| right.add_child(select));
     
     let select_food = Dialog::around(LinearLayout::horizontal()
-        .child(PaddedView::lrtb(0, 2, 0, 0, TextView::new("Nourriture").v_align(VAlign::Center)))
+        .child(PaddedView::lrtb(0, 2, 0, 0, TextView::new("Food").v_align(VAlign::Center)))
         .child(
             SelectView::new()
                 .with_all(items.clone().into_iter().filter(|item| item.slot == ItemSlot::FOOD).map(|item| (item.name.clone(), item.clone())))
