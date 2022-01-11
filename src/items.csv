@@ -26,9 +26,12 @@ Collier;Ras de cou de soigneur classique;;127;117;;;85;;121;1;1
 Bracelet;Amulette de soigneur de l'Asphodèle;;142;133;;;127;89;;2;0
 Bracelet;Bracelet de soigneur radieux amélioré;;142;133;89;;;127;;2;0
 Bracelet;Poignet de soigneur classique;;127;117;121;;85;;;1;1
-Bague;Bague de soigneur de l'Asphodèle;;142;133;;;89;127;;2;0
-Bague;Bague de soigneur radieuse améliorée;;142;133;89;;127;;;2;0
-Bague;Bague de soigneur classique ;;127;117;;;121;85;;1;1
+Bague gauche;Bague de soigneur de l'Asphodèle;;142;133;;;89;127;;2;0
+Bague gauche;Bague de soigneur radieuse améliorée;;142;133;89;;127;;;2;0
+Bague gauche;Bague de soigneur classique ;;127;117;;;121;85;;1;1
+Bague droite;Bague de soigneur de l'Asphodèle;;142;133;;;89;127;;2;0
+Bague droite;Bague de soigneur radieuse améliorée;;142;133;89;;127;;;2;0
+Bague droite;Bague de soigneur classique ;;127;117;;;121;85;;1;1
 Nourriture;Sageburger;;;93;;90;;54;;;
 Nourriture;Potage à la citrouille;;;93;;;54;90;;;
 Nourriture;Jus de pêche;;;93;90;;;54;;;
