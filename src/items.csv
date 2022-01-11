@@ -1,37 +1,40 @@
 slot;name;weapon_damage;mind;vitality;piety;direct_hit;critical;determination;spell_speed;meld_slots;overmeldable
-Arme;Pendules de l'Asphodèle;120;304;288;;;188;269;;2;0
-Arme;Mein gwrac'h radieux amélioré;119;296;278;;;266;186;;2;0
-Arme;Mein gwrac'h;115;266;245;;;177;253;;2;1
-Tête;Protège-tête de soigneur de l'Asphodèle;;180;169;113;;162;;;2;0
-Tête;Visière de soigneur radieuse améliorée;;180;169;;;;162;113;2;0
-Tête;Couronne de laurier de medicus classique;;161;149;;;154;108;;2;1
-Torse;Chiton de soigneur de l'Asphodèle;;285;269;;;180;257;;2;0
-Torse;Cotte de mailles de soigneur radieuse améliorée;;285;269;257;;;180;;2;0
-Torse;Chiton de medicus classique;;256;236;171;;;244;;2;1
-Mains;Poignets de soigneur de l'Asphodèle;;180;169;113;;;;162;2;0
-Mains;Gants de soigneur radieux améliorés;;180;169;;;162;113;;2;0
-Mains;Torques de poignets de medicus classiques;;161;149;;;108;;154;2;1
-Jambes;Pantalon de soigneur de l'Asphodèle;;285;269;257;;;180;;2;0
-Jambes;Fuseau de soigneur radieux amélioré;;285;269;;;180;257;;2;0
-Jambes;Pagne de medicus classique;;256;236;244;;;171;;2;1
-Pieds;Guêtres de soigneur de l'Asphodèle;;180;169;;;162;113;;2;0
-Pieds;Jambards de soigneur radieux améliorés;;180;169;162;;113;;;2;0
-Pieds;Caligae de medicus classiques;;161;149;;;154;108;;2;1
-Oreille;Boucles d'oreilles de soigneur de l'Asphodèle;;142;133;;;127;89;;2;0
-Oreille;Boucles d'oreilles de soigneur radieuses améliorées;;142;133;127;;89;;;2;0
-Oreille;Boucles d'oreilles de soigneur classiques ;;127;117;121;;;;85;1;1
-Collier;Collier de soigneur de l'Asphodèle;;142;133;127;;89;;;2;0
-Collier;Ras de cou de soigneur radieux amélioré;;142;133;;;127;;89;2;0
-Collier;Ras de cou de soigneur classique;;127;117;;;85;;121;1;1
-Bracelet;Amulette de soigneur de l'Asphodèle;;142;133;;;127;89;;2;0
-Bracelet;Bracelet de soigneur radieux amélioré;;142;133;89;;;127;;2;0
-Bracelet;Poignet de soigneur classique;;127;117;121;;85;;;1;1
-Bague;Bague de soigneur de l'Asphodèle;;142;133;;;89;127;;2;0
-Bague;Bague de soigneur radieuse améliorée;;142;133;89;;127;;;2;0
-Bague;Bague de soigneur classique ;;127;117;;;121;85;;1;1
-Nourriture;Sageburger;;;93;;90;;54;;;
-Nourriture;Potage à la citrouille;;;93;;;54;90;;;
-Nourriture;Jus de pêche;;;93;90;;;54;;;
-Nourriture;Tarte à la pêche;;;93;54;;;;90;;
-Nourriture;Biscuit au sycon;;;93;;54;;;90;;
-Nourriture;Chai thavnairois;;;93;;;90;;54;;
+weapon;Asphodelos Pendulums;120;304;288;;;188;269;;2;0
+weapon;Augmented Radiant's Milpreves;119;296;278;;;266;186;;2;0
+weapon;Classical Milpreves;115;266;245;;;177;253;;2;1
+head;Asphodelos Headgear of Healing;;180;169;113;;162;;;2;0
+head;Augmented Radiant's Visor of Healing;;180;169;;;;162;113;2;0
+head;Classical Medicus's Laurel Wreath;;161;149;;;154;108;;2;1
+body;Asphodelos Chiton of Healing;;285;269;;;180;257;;2;0
+body;Augmented Radiant's Mail of Healing;;285;269;257;;;180;;2;0
+body;Classical Medicus's Chiton;;256;236;171;;;244;;2;1
+hands;Asphodelos Wristbands of Healing;;180;169;113;;;;162;2;0
+hands;Augmented Radiant's Gloves of Healing;;180;169;;;162;113;;2;0
+hands;Classical Medicus's Wrist Torgue;;161;149;;;108;;154;2;1
+legs;Asphodelos Trousers of Healing;;285;269;257;;;180;;2;0
+legs;Augmented Radiant's Hose of Healing;;285;269;;;180;257;;2;0
+legs;Classical Medicus's Loincloth;;256;236;244;;;171;;2;1
+feet;Asphodelos Gaiters of Healing;;180;169;;;162;113;;2;0
+feet;Augmented Radiant's Greaves of Healing;;180;169;162;;113;;;2;0
+feet;Classical Medicus's Caligae;;161;149;;;154;108;;2;1
+earrings;Asphodelos Earrings of Healing;;142;133;;;127;89;;2;0
+earrings;Augmented Radiant's Earrings of Healing;;142;133;127;;89;;;2;0
+earrings;Classical Earrings of Healing;;127;117;121;;;;85;1;1
+necklace;Asphodelos Necklace of Healing;;142;133;127;;89;;;2;0
+necklace;Augmented Radiant's Choker of Healing;;142;133;;;127;;89;2;0
+necklace;Classical Choker of Healing;;127;117;;;85;;121;1;1
+bracelet;Asphodelos Amulet of Healing;;142;133;;;127;89;;2;0
+bracelet;Augmented Radiant's Bracelet of Healing;;142;133;89;;;127;;2;0
+bracelet;Classical Wristband of Healing;;127;117;121;;85;;;1;1
+left ring;Asphodelos Ring of Healing;;142;133;;;89;127;;2;0
+left ring;Augmented Radiant's Ring of Healing;;142;133;89;;127;;;2;0
+left ring;Classical Ring of Healing;;127;117;;;121;85;;1;1
+right ring;Asphodelos Ring of Healing;;142;133;;;89;127;;2;0
+right ring;Augmented Radiant's Ring of Healing;;142;133;89;;127;;;2;0
+right ring;Classical Ring of Healing;;127;117;;;121;85;;1;1
+food;Archon Burger;;;93;;90;;54;;;
+food;Pumpkin Potage;;;93;;;54;90;;;
+food;Peach Juice;;;93;90;;;54;;;
+food;Peach Tart;;;93;54;;;;90;;
+food;Sykon Cookie;;;93;;54;;;90;;
+food;Thavnairian Chai;;;93;;;90;;54;;

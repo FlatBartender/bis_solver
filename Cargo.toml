@@ -10,3 +10,5 @@ edition = "2021"
 csv = "1.1"
 itertools = "0.10"
 rayon = "1.5"
+cursive = { version = "0.16", default-features = false, features = ["crossterm-backend"] }
+log = "0.4"
