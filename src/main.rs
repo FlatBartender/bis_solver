@@ -15,7 +15,7 @@ trait Scalable {
 
 impl Scalable for u32 {
     fn scale<const NUMERATOR: u32, const DENOMINATOR: u32>(self, unit: Unit<NUMERATOR, DENOMINATOR>) -> Self {
-        self * unit.0 * NUMERATOR / DENOMINATOR
+        (self * unit.0 * NUMERATOR) / DENOMINATOR
     }
 }
 
@@ -38,6 +38,7 @@ trait StatRepo {
     fn critical(&self) -> u32;
     fn determination(&self) -> u32;
     fn spell_speed(&self) -> u32;
+    fn gcd_uptime(&self) -> f64;
 
     fn stat_max(&self) -> u32 {
         vec![self.piety(), self.direct_hit(), self.critical(), self.determination(), self.spell_speed()].into_iter().max().unwrap()
@@ -49,6 +50,10 @@ trait StatRepo {
 
     fn gcd(&self) -> Unit<1, 100> {
         Unit(2500 * (1000 - 130 * (self.spell_speed() - 400) / 1900) / 10000)
+    }
+
+    fn adjusted_gcd(&self) -> f64 {
+        self.gcd().scalar() / self.gcd_uptime()
     }
 
     fn crit_multiplier(&self) -> Unit<1, 1000> {
@@ -92,11 +97,11 @@ trait StatRepo {
     }
 
     fn cycle_length(&self) -> f64 {
-        self.cycle_normal_gcd() as f64 * self.gcd().scalar() + 2.5
+        self.cycle_normal_gcd() as f64 * self.adjusted_gcd() + 2.5
     }
 
     fn cycle_normal_gcd(&self) -> f64 {
-        ((30.0 - 2.5) / self.gcd().scalar()).round()
+        ((30.0 - 2.5) / self.adjusted_gcd()).round()
     }
 
     fn cycle_phlegma(&self) -> f64 {
@@ -169,7 +174,7 @@ trait StatRepoBalance: StatRepo {
     }
 
     fn PhlegmaTime(&self) -> f64 {
-        self.gcd().scalar() * (self.cycle() / 45.0 - 4.0)
+        self.adjusted_gcd() * (self.cycle() / 45.0 - 4.0)
     }
 
     fn getP(&self) -> f64 {
@@ -177,13 +182,13 @@ trait StatRepoBalance: StatRepo {
 
         let mut result = self.PhlegmaB() / self.cycle() * cycle;
 
-        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.gcd().scalar()).floor() * self.gcd().scalar()) * (self.gcd().scalar() - 27.5 % self.gcd().scalar())) {
-            result += 6.0*(27.5/self.gcd().scalar()).ceil() * DOSIS_POTENCY as f64;
+        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.adjusted_gcd()).floor() * self.adjusted_gcd()) * (self.adjusted_gcd() - 27.5 % self.adjusted_gcd())) {
+            result += 6.0*(27.5/self.adjusted_gcd()).ceil() * DOSIS_POTENCY as f64;
             result += 6.0*10.0*self.sps_multiplier().scalar() * EUKRASIAN_DOSIS_POTENCY as f64;
         } else {
-            result += 6.0*(27.5/self.gcd().scalar()).floor() * DOSIS_POTENCY as f64;
+            result += 6.0*(27.5/self.adjusted_gcd()).floor() * DOSIS_POTENCY as f64;
             result += 6.0*9.0*self.sps_multiplier().scalar() * EUKRASIAN_DOSIS_POTENCY as f64;
-            result += 6.0*((3.0-(30.0 % self.gcd().scalar()))/3.0)*self.sps_multiplier().scalar()*EUKRASIAN_DOSIS_POTENCY as f64;
+            result += 6.0*((3.0-(30.0 % self.adjusted_gcd()))/3.0)*self.sps_multiplier().scalar()*EUKRASIAN_DOSIS_POTENCY as f64;
         }
 
         result / cycle
@@ -191,10 +196,10 @@ trait StatRepoBalance: StatRepo {
 
     fn cycle(&self) -> f64 {
         let mut result = 0.0;
-        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.gcd().scalar()).floor() * self.gcd().scalar()) * (self.gcd().scalar() - 27.5 % self.gcd().scalar())) {
-            result += 6.0*((27.5/self.gcd().scalar()).ceil() * self.gcd().scalar() + 2.5);
+        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.adjusted_gcd()).floor() * self.adjusted_gcd()) * (self.adjusted_gcd() - 27.5 % self.adjusted_gcd())) {
+            result += 6.0*((27.5/self.adjusted_gcd()).ceil() * self.adjusted_gcd() + 2.5);
         } else {
-            result += 6.0*((27.5/self.gcd().scalar()).floor() * self.gcd().scalar() + 2.5);
+            result += 6.0*((27.5/self.adjusted_gcd()).floor() * self.adjusted_gcd() + 2.5);
         }
 
         result
@@ -224,6 +229,7 @@ struct Stats {
     critical: u32,
     determination: u32,
     spell_speed: u32,
+    gcd_uptime: f64,
 }
 
 impl Stats {
@@ -279,6 +285,9 @@ impl StatRepo for Stats {
     }
     fn spell_speed(&self) -> u32 {
         self.spell_speed
+    }
+    fn gcd_uptime(&self) -> f64 {
+        self.gcd_uptime
     }
 }
 
@@ -380,6 +389,7 @@ const SAGE_BASE: Stats = Stats {
     critical: 400,
     determination: 390,
     spell_speed: 400,
+    gcd_uptime: 1.0,
 };
 
 #[derive(Debug, Clone)]
@@ -389,6 +399,7 @@ struct Gearset {
     food: Item,
     meld_x: MatX,
     meld_ix: MatIX,
+    gcd_uptime: f64,
 }
 
 impl Gearset {
@@ -407,6 +418,7 @@ impl Gearset {
             food,
             meld_x: MatX::default(),
             meld_ix: MatIX::default(),
+            gcd_uptime: 1.0,
         }
     }
 
@@ -418,6 +430,7 @@ impl Gearset {
         stats.add(&self.base);
         stats.apply_food(&self.food);
         stats.apply_materias(&self.meld_x, &self.meld_ix);
+        stats.gcd_uptime = self.gcd_uptime;
         stats
     }
 
@@ -484,7 +497,8 @@ impl Item {
                 direct_hit: record.get(6).unwrap().parse().unwrap_or_default(),
                 critical: record.get(7).unwrap().parse().unwrap_or_default(),
                 determination: record.get(8).unwrap().parse().unwrap_or_default(),
-                spell_speed: record.get(9).unwrap().parse().unwrap_or_default()
+                spell_speed: record.get(9).unwrap().parse().unwrap_or_default(),
+                gcd_uptime: 1.0,
             },
             meld_slots: record.get(10).unwrap().parse().unwrap_or_default(),
             overmeldable: record.get(11).unwrap().parse().unwrap_or_default(),
@@ -596,7 +610,7 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
     println!("MELDED SETS");
     for (_, gearset) in &melds[0..10] {
         let stats = gearset.stats();
-        println!("    DPS: {}", dps_function(&stats));
+        println!("    DPS: {}/{}", stats.dps(), stats.balance_dps());
         gearset.items.iter()
             .for_each(|item| {
                 println!("        Item: {}", item.name);
@@ -638,7 +652,8 @@ fn tui() -> Result<(), Box<dyn std::error::Error>> {
         s.call_on_name("Det", |view: &mut TextView| view.set_content(format!("{}", stats.determination)));
         s.call_on_name("SpS", |view: &mut TextView| view.set_content(format!("{}", stats.spell_speed)));
         s.call_on_name("Pie", |view: &mut TextView| view.set_content(format!("{}", stats.piety)));
-        s.call_on_name("GCD", |view: &mut TextView| view.set_content(format!("{:2}", stats.gcd().scalar())));
+        s.call_on_name("GCD", |view: &mut TextView| view.set_content(format!("{:.2}", stats.gcd().scalar())));
+        s.call_on_name("Est. GCD", |view: &mut TextView| view.set_content(format!("{:.4}", stats.adjusted_gcd())));
         s.call_on_name("Crit Rate", |view: &mut TextView| view.set_content(format!("{:.2}", stats.crit_rate().scalar())));
         s.call_on_name("Crit Mult", |view: &mut TextView| view.set_content(format!("{:.3}", stats.crit_multiplier().scalar())));
         s.call_on_name("DH Rate", |view: &mut TextView| view.set_content(format!("{:.3}", stats.dh_rate().scalar())));
@@ -747,6 +762,28 @@ fn tui() -> Result<(), Box<dyn std::error::Error>> {
 
     left.add_child(meld_menu);
 
+    let additional_parameters = LinearLayout::horizontal()
+        .child(Dialog::around(LinearLayout::vertical()
+                .child(TextView::new("Uptime%"))
+                .child(EditView::new()
+                    .on_edit(|s: &mut Cursive, content: &str, _| {
+                        if let Ok(val) = content.parse::<f64>() {
+                            if val > 0.0 && val <= 100.0 {
+                                s.call_on_name("Uptime", |view: &mut EditView| view.set_style(ColorStyle::inherit_parent()));
+                                s.with_user_data(|gearset: &mut Gearset| gearset.gcd_uptime = val / 100.0);
+                                update_stats(s);
+                            } else {
+                                s.call_on_name("Uptime", |view: &mut EditView| view.set_style(ColorStyle::highlight()));
+                            }
+                        } else {
+                            s.call_on_name("Uptime", |view: &mut EditView| view.set_style(ColorStyle::highlight()));
+                        }
+                    })
+                    .with_name("Uptime")
+                )));
+
+    left.add_child(additional_parameters);
+
     let mut right = LinearLayout::vertical();
     selects_right.into_iter()
         .for_each(|select| right.add_child(select));
@@ -766,7 +803,7 @@ fn tui() -> Result<(), Box<dyn std::error::Error>> {
         .child(right);
 
     let mut stats = LinearLayout::horizontal();
-    vec!["WD", "MND", "DH", "Crit", "Det", "SpS", "Pie", "GCD", "Crit Rate", "Crit Mult", "DH Rate", "PPS", "DPS"].into_iter()
+    vec!["WD", "MND", "DH", "Crit", "Det", "SpS", "Pie", "GCD", "Est. GCD", "Crit Rate", "Crit Mult", "DH Rate", "PPS", "DPS"].into_iter()
         .for_each(|stat| {
            stats.add_child(Dialog::around(LinearLayout::vertical()
                 .child(TextView::new(stat))
@@ -781,23 +818,9 @@ fn tui() -> Result<(), Box<dyn std::error::Error>> {
     siv.call_on_all_named("item", |select: &mut SelectView| {
         select.set_selection(0);
     });
-
-    let stats = gearset.stats();
-    siv.call_on_name("WD", |view: &mut TextView| view.set_content(format!("{}", stats.weapon_damage)));
-    siv.call_on_name("MND", |view: &mut TextView| view.set_content(format!("{}", stats.mind)));
-    siv.call_on_name("DH", |view: &mut TextView| view.set_content(format!("{}", stats.direct_hit)));
-    siv.call_on_name("Crit", |view: &mut TextView| view.set_content(format!("{}", stats.critical)));
-    siv.call_on_name("Det", |view: &mut TextView| view.set_content(format!("{}", stats.determination)));
-    siv.call_on_name("SpS", |view: &mut TextView| view.set_content(format!("{}", stats.spell_speed)));
-    siv.call_on_name("Pie", |view: &mut TextView| view.set_content(format!("{}", stats.piety)));
-    siv.call_on_name("GCD", |view: &mut TextView| view.set_content(format!("{:2}", stats.gcd().scalar())));
-    siv.call_on_name("Crit Rate", |view: &mut TextView| view.set_content(format!("{:.2}", stats.crit_rate().scalar())));
-    siv.call_on_name("Crit Mult", |view: &mut TextView| view.set_content(format!("{:.3}", stats.crit_multiplier().scalar())));
-    siv.call_on_name("DH Rate", |view: &mut TextView| view.set_content(format!("{:.3}", stats.dh_rate().scalar())));
-    siv.call_on_name("PPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.getP())));
-    siv.call_on_name("DPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.balance_dps())));
-
+    
     siv.set_user_data(gearset);
+    update_stats(&mut siv);
 
     siv.run();
 
