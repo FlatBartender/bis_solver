@@ -828,7 +828,7 @@ fn tui() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
-    //calc_sets(Stats::balance_dps).unwrap();
+    calc_sets(Stats::balance_dps).unwrap();
     //calc_sets(Stats::dps).unwrap();
-    tui().unwrap();
+    //tui().unwrap();
 }
