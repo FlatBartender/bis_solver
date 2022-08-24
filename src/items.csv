@@ -1,40 +1,50 @@
 slot;name;weapon_damage;mind;vitality;piety;direct_hit;critical;determination;spell_speed;meld_slots;overmeldable
-weapon;Asphodelos Pendulums;120;304;288;;;188;269;;2;0
-weapon;Augmented Radiant's Milpreves;119;296;278;;;266;186;;2;0
-weapon;Classical Milpreves;115;266;245;;;177;253;;2;1
-head;Asphodelos Headgear of Healing;;180;169;113;;162;;;2;0
-head;Augmented Radiant's Visor of Healing;;180;169;;;;162;113;2;0
-head;Classical Medicus's Laurel Wreath;;161;149;;;154;108;;2;1
-body;Asphodelos Chiton of Healing;;285;269;;;180;257;;2;0
-body;Augmented Radiant's Mail of Healing;;285;269;257;;;180;;2;0
-body;Classical Medicus's Chiton;;256;236;171;;;244;;2;1
-hands;Asphodelos Wristbands of Healing;;180;169;113;;;;162;2;0
-hands;Augmented Radiant's Gloves of Healing;;180;169;;;162;113;;2;0
-hands;Classical Medicus's Wrist Torgue;;161;149;;;108;;154;2;1
-legs;Asphodelos Trousers of Healing;;285;269;257;;;180;;2;0
-legs;Augmented Radiant's Hose of Healing;;285;269;;;180;257;;2;0
-legs;Classical Medicus's Loincloth;;256;236;244;;;171;;2;1
-feet;Asphodelos Gaiters of Healing;;180;169;;;162;113;;2;0
-feet;Augmented Radiant's Greaves of Healing;;180;169;162;;113;;;2;0
-feet;Classical Medicus's Caligae;;161;149;;;154;108;;2;1
-earrings;Asphodelos Earrings of Healing;;142;133;;;127;89;;2;0
-earrings;Augmented Radiant's Earrings of Healing;;142;133;127;;89;;;2;0
-earrings;Classical Earrings of Healing;;127;117;121;;;;85;1;1
-necklace;Asphodelos Necklace of Healing;;142;133;127;;89;;;2;0
-necklace;Augmented Radiant's Choker of Healing;;142;133;;;127;;89;2;0
-necklace;Classical Choker of Healing;;127;117;;;85;;121;1;1
-bracelet;Asphodelos Amulet of Healing;;142;133;;;127;89;;2;0
-bracelet;Augmented Radiant's Bracelet of Healing;;142;133;89;;;127;;2;0
-bracelet;Classical Wristband of Healing;;127;117;121;;85;;;1;1
-left ring;Asphodelos Ring of Healing;;142;133;;;89;127;;2;0
-left ring;Augmented Radiant's Ring of Healing;;142;133;89;;127;;;2;0
-left ring;Classical Ring of Healing;;127;117;;;121;85;;1;1
-right ring;Asphodelos Ring of Healing;;142;133;;;89;127;;2;0
-right ring;Augmented Radiant's Ring of Healing;;142;133;89;;127;;;2;0
-right ring;Classical Ring of Healing;;127;117;;;121;85;;1;1
-food;Archon Burger;;;93;;90;;54;;;
-food;Pumpkin Potage;;;93;;;54;90;;;
-food;Peach Juice;;;93;90;;;54;;;
-food;Peach Tart;;;93;54;;;;90;;
-food;Sykon Cookie;;;93;;54;;;90;;
-food;Thavnairian Chai;;;93;;;90;;54;;
+weapon;Abyssos Wings;126;358;350;;;287;201;;2;0
+weapon;Augmented Lunar Envoy's Wings;125;348;338;198;;;283;;2;0
+weapon;Windswept Milpreves;122;321;308;;;193;275;;2;0
+head;Abyssos Helm of Healing;;211;205;172;;;;120;2;0
+head;Augmented Lunar Envoy's Hairpin of Healing;;211;205;;;172;120;;2;0
+head;Purgatory Helm of Healing;;190;181;165;;;116;;2;0
+head;Rinascita Beret of Healing;;190;181;;;116;165;;2;1
+body;Abyssos Surcoat of Healing;;336;327;;;273;191;;2;0
+body;Augmented Lunar Envoye's Justaucorps of Healing;;336;327;191;;;273;;2;0
+body;Purgatory Surcoat of Healing;;301;287;;;262;183;;2;0
+body;Rinascita Coat of Healing;;301;287;262;;;183;;2;1
+hands;Abyssos Armguards of Healing;;211;205;120;;172;;;2;0
+hands;Augmented Lunar Envoy's Gloves of Healing;;211;205;;;;120;172;2;0
+hands;Purgatory Armguards of Healing;;190;181;165;;;116;;2;0
+hands;Rinascita Gloves of Healing;;190;181;;;;116;165;2;1
+legs;Abyssos Culottes of Healing;;336;327;191;;;273;;2;0
+legs;Augmented Lunar Envoy's Longkilt of Healing;;336;327;;;273;191;;2;0
+legs;Purgatory Culottes of Healing;;301;287;262;;;;183;2;0
+legs;Rinascita Poleyns of Healing;;301;287;;;183;262;;2;1
+feet;Abyssos Boots of Healing;;211;205;;;172;120;;2;0
+feet;Augmented Lunar Envoye's Boots of Healing;;211;205;172;;;;120;2;0
+feet;Purgatory Boots of Healing;;190;181;;;165;116;;2;0
+feet;Rinascita Shoes of Healing;;190;181;;;;165;116;2;1
+earrings;Abyssos Earrings of Healing;;167;162;;;;136;95;2;0
+earrings;Augmented Lunar Envoy's Earring of Healing;;167;162;95;;136;;;2;0
+earrings;Purgatory Earrings of Healing;;149;142;;;;91;130;1;0
+earrings;Rinascita Earrings of Healing;;149;142;91;;130;;;1;1
+necklace;Abyssos Choker of Healing;;167;162;136;;;95;;2;0
+necklace;Augmented Lunar Envoy's Necklace of Healing;;167;162;;;95;;136;2;0
+necklace;Purgatory Choker of Healing;;149;142;91;;;130;;1;0
+necklace;Rinascita Necklace of Healing;;149;142;130;;;;91;1;1
+bracelet;Abyssos Amulet of Healing;;167;162;95;;;136;;2;0
+bracelet;Augmented Lunar Envoy's Bracelets of Healing;;167;162;;;136;95;;2;0
+bracelet;Purgatory Amulet of Healing;;149;142;;;91;;130;1;0
+bracelet;Rinascita Bracelet of Healing;;149;142;91;;130;;;1;1
+left ring;Abyssos Ring of Healing;;167;162;;;136;95;;2;0
+left ring;Augmented Lunar Envoy's Ring of Healing;;167;162;136;;95;;;2;0
+left ring;Purgatory Ring of Healing;;149;142;;;91;;130;1;0
+left ring;Rinascita Ring of Healing;;149;142;;;130;91;;1;1
+right ring;Abyssos Ring of Healing;;167;162;;;136;95;;2;0
+right ring;Augmented Lunar Envoy's Ring of Healing;;167;162;136;;95;;;2;0
+right ring;Purgatory Ring of Healing;;149;142;;;91;;130;1;0
+right ring;Rinascita Ring of Healing;;149;142;;;130;91;;1;1
+food;Carrot Pudding;;;;;;58;97;;;
+food;Garlean Pizza;;;;;;97;;58;;
+food;Gyros;;;;96;;;58;;;
+food;Loaghtan Rump Steak;;;;58;;;;97;;
+food;Melon pie;;;;;97;;58;;;
+food;Piennolo Tomato Salad;;;;;58;;;97;;
