@@ -29,6 +29,8 @@ const DOSIS_POTENCY: u32 = 330;
 const PHLEGMA_POTENCY: u32 = 510;
 const EUKRASIAN_DOSIS_POTENCY: u32 = 70;
 
+const DPS_FUNCTION: fn (&Stats) -> f64 = Stats::dps;
+
 trait StatRepo {
     fn weapon_damage(&self) -> u32;
     fn mind(&self) -> u32;
@@ -168,57 +170,6 @@ trait StatRepo {
     }
 }
 
-trait StatRepoBalance: StatRepo {
-    fn PhlegmaB(&self) -> f64 {
-        (PHLEGMA_POTENCY - DOSIS_POTENCY) as f64 * self.cycle() / 45.0
-    }
-
-    fn PhlegmaTime(&self) -> f64 {
-        self.adjusted_gcd() * (self.cycle() / 45.0 - 4.0)
-    }
-
-    fn getP(&self) -> f64 {
-        let cycle = self.cycle() + self.PhlegmaTime();
-
-        let mut result = self.PhlegmaB() / self.cycle() * cycle;
-
-        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.adjusted_gcd()).floor() * self.adjusted_gcd()) * (self.adjusted_gcd() - 27.5 % self.adjusted_gcd())) {
-            result += 6.0*(27.5/self.adjusted_gcd()).ceil() * DOSIS_POTENCY as f64;
-            result += 6.0*10.0*self.sps_multiplier().scalar() * EUKRASIAN_DOSIS_POTENCY as f64;
-        } else {
-            result += 6.0*(27.5/self.adjusted_gcd()).floor() * DOSIS_POTENCY as f64;
-            result += 6.0*9.0*self.sps_multiplier().scalar() * EUKRASIAN_DOSIS_POTENCY as f64;
-            result += 6.0*((3.0-(30.0 % self.adjusted_gcd()))/3.0)*self.sps_multiplier().scalar()*EUKRASIAN_DOSIS_POTENCY as f64;
-        }
-
-        result / cycle
-    }
-
-    fn cycle(&self) -> f64 {
-        let mut result = 0.0;
-        if (2.5 * DOSIS_POTENCY as f64) > (EUKRASIAN_DOSIS_POTENCY as f64 / 3.0 * self.sps_multiplier().scalar() * (2.5 + (27.5/self.adjusted_gcd()).floor() * self.adjusted_gcd()) * (self.adjusted_gcd() - 27.5 % self.adjusted_gcd())) {
-            result += 6.0*((27.5/self.adjusted_gcd()).ceil() * self.adjusted_gcd() + 2.5);
-        } else {
-            result += 6.0*((27.5/self.adjusted_gcd()).floor() * self.adjusted_gcd() + 2.5);
-        }
-
-        result
-    }
-
-    fn CritRate(&self) -> f64 {
-        (200.0 * (self.critical() as f64 - 400.0) / 1900.0 + 50.0).floor() / 1000.0
-    }
-
-    fn CritDamage(&self) -> f64 {
-        (200.0 * (self.critical() as f64 - 400.0) / 1900.0 + 400.0).floor() / 1000.0
-    }
-
-    fn balance_dps(&self) -> f64 {
-        let damage = (((self.getP() * self.adjusted_weapon_damage().0 as f64 * self.magic_attack_power().scalar()).floor() * self.det_multiplier().scalar()).floor() * 130.0 / 10000.0).floor() ;
-        damage * (1.0 + self.dh_rate().scalar() / 4.0) * (1.0 + self.CritRate() * self.CritDamage())
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 struct Stats {
     weapon_damage: u32,
@@ -290,11 +241,6 @@ impl StatRepo for Stats {
         self.gcd_uptime
     }
 }
-
-impl StatRepoBalance for Stats {
-
-}
-
 
 #[derive(Debug, Clone)]
 struct Item {
@@ -485,7 +431,7 @@ impl Item {
         self.stats.stat_max()
     }
 
-    fn from_record(record: &csv::StringRecord) -> Result<Item, Box<dyn std::error::Error>> {
+    fn from_record(record: &csv::StringRecord) -> eyre::Result<Item> {
         let item = Item {
             slot: record.get(0).unwrap().parse().unwrap(),
             name: record.get(1).unwrap().to_string(),
@@ -510,7 +456,7 @@ impl Item {
 
 const ITEMS: &str = include_str!("items.csv");
 
-fn load_items() -> Result<Vec<Item>, Box<dyn std::error::Error>> {
+fn load_items() -> eyre::Result<Vec<Item>> {
     let csv_reader = csv::ReaderBuilder::new()
         .delimiter(b';')
         .quoting(false)
@@ -523,11 +469,9 @@ fn load_items() -> Result<Vec<Item>, Box<dyn std::error::Error>> {
         .collect::<Result<Vec<_>, _>>()
 }
 
-fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Ranking gear sets...");
-
+fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
+    ui_link.message("Loading items...")?;
     let items = load_items()?;
-
     let arme: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::WEAPON).collect();
     let tête: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::HEAD).collect();
     let torse: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::BODY).collect();
@@ -555,6 +499,8 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
             bague_droite.clone().into_iter(),
         ].into_iter()
         .multi_cartesian_product();
+    
+    ui_link.message("Ranking gear...")?;
 
     let mut results: Vec<_> = product
         .map(|items| Gearset::from_items(items))
@@ -562,7 +508,7 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
             if !gearset.is_valid() { 
                 None
             } else {
-                Some((dps_function(&gearset.stats()), gearset))
+                Some((DPS_FUNCTION(&gearset.stats()), gearset))
             }
     }).collect();
 
@@ -571,7 +517,7 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
 
     let candidates: Vec<_> = results[..10].iter().cloned().collect();
     
-    println!("Ranking food/melds...");
+    ui_link.message("Ranking food/melds...")?;
 
     let mut melds: Vec<_> = candidates.into_iter()
         .map(|(_, gearset)| gearset)
@@ -601,234 +547,167 @@ fn calc_sets(dps_function: fn (&Stats) -> f64) -> Result<(), Box<dyn std::error:
             gearset
         })
         .map(|gearset| {
-            (dps_function(&gearset.stats()), gearset)
+            (DPS_FUNCTION(&gearset.stats()), gearset)
         })
         .collect();
 
     melds.sort_by(|(a_dps, _,), (b_dps, _,)| b_dps.partial_cmp(a_dps).unwrap());
 
-    println!("MELDED SETS");
-    for (_, gearset) in &melds[0..10] {
-        let stats = gearset.stats();
-        println!("    DPS: {}/{}", stats.dps(), stats.balance_dps());
-        gearset.items.iter()
-            .for_each(|item| {
-                println!("        Item: {}", item.name);
+    melds.into_iter()
+        .take(10)
+        .for_each(|(_, gearset)| {
+            ui_link.gearset(gearset).unwrap();
+        });
+
+    ui_link.message("Finished finding top 10 sets!")?;
+
+    //for (_, gearset) in &melds[..10] {
+    //    let stats = gearset.stats();
+    //    println!("    DPS: {}", stats.dps());
+    //    gearset.items.iter()
+    //        .for_each(|item| {
+    //            println!("        Item: {}", item.name);
+    //        });
+    //    println!("        Food: {}", gearset.food.name);
+    //    
+    //    println!("        Melds: {} CRT X, {} DET X, {} DH X, {} SPS X, {} CRT IX, {} DET IX, {} DH IX, {} SPS IX",
+    //        gearset.meld_x[0], gearset.meld_x[1], gearset.meld_x[2], gearset.meld_x[3],
+    //        gearset.meld_ix[0], gearset.meld_ix[1], gearset.meld_ix[2], gearset.meld_ix[3]);
+    //    println!("        GCD: {}, crit rate: {}, crit damage: {}, DH rate: {}",
+    //        stats.gcd().scalar(), stats.crit_rate().scalar(), stats.crit_multiplier().scalar(), stats.dh_rate().scalar());
+    //    println!("{:?}", stats);
+    //}
+
+    Ok(())
+}
+
+use eframe::egui;
+
+#[derive(Clone)]
+struct UiLink {
+    status_send: std::sync::mpsc::Sender<UiMessage>,
+}
+
+impl UiLink {
+    pub fn new(status_send: std::sync::mpsc::Sender<UiMessage>) -> Self {
+        Self {
+            status_send,
+        }
+    }
+
+    pub fn message(&self, message: impl ToString) -> eyre::Result<()> {
+        self.status_send.send(UiMessage::StatusMessage(message.to_string()))?;
+        Ok(())
+    }
+
+    pub fn gearset(&self, gearset: Gearset) -> eyre::Result<()> {
+        self.status_send.send(UiMessage::NewGearset(gearset))?;
+        Ok(())
+    }
+}
+
+enum UiMessage {
+    StatusMessage(String),
+    NewGearset(Gearset),
+}
+
+struct Ui {
+    status_recv: std::sync::mpsc::Receiver<UiMessage>,
+
+    status: String,
+    gearsets: Vec<Gearset>,
+}
+
+impl Ui {
+    pub fn new(_cc: &eframe::CreationContext<'_>, status_recv: std::sync::mpsc::Receiver<UiMessage>) -> Self {
+        Self {
+            status_recv,
+
+            status: "Startup".to_string(),
+            gearsets: Vec::new(),
+        }
+    }
+
+    pub fn handle_message(&mut self, message: UiMessage) {
+        use UiMessage::*;
+
+        match message {
+            StatusMessage(message) => self.status = message,
+            NewGearset(gearset) => self.gearsets.push(gearset),
+        }
+    }
+}
+
+impl eframe::App for Ui {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        loop {
+            match self.status_recv.try_recv() {
+                Ok(message) => {
+                    self.handle_message(message);
+                },
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                _ => todo!(),
+            }
+        }
+
+        egui::TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
+            ui.label(&self.status);
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            use egui_extras::{Size, TableBuilder};
+
+            let text_size = egui::TextStyle::Body.resolve(ui.style()).size;
+
+            let mut table = TableBuilder::new(ui)
+                .striped(true)
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .column(Size::initial(20.0).at_least(20.0))
+                .column(Size::initial(120.0).at_least(40.0))
+                .resizable(true);
+
+            table.header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("#");
+                });
+                header.col(|ui| {
+                    ui.heading("DPS");
+                });
+            })
+            .body(|mut body| {
+                for (index, gearset) in self.gearsets.iter().enumerate() {
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label((index+1).to_string());
+                        });
+                        row.col(|ui| {
+                            ui.label(DPS_FUNCTION(&gearset.stats()).to_string());
+                        });
+                    });
+                }
             });
-        println!("        Food: {}", gearset.food.name);
-        
-        println!("        Melds: {} CRT X, {} DET X, {} DH X, {} SPS X, {} CRT IX, {} DET IX, {} DH IX, {} SPS IX",
-            gearset.meld_x[0], gearset.meld_x[1], gearset.meld_x[2], gearset.meld_x[3],
-            gearset.meld_ix[0], gearset.meld_ix[1], gearset.meld_ix[2], gearset.meld_ix[3]);
-        println!("        GCD: {}, crit rate: {}, crit damage: {}, DH rate: {}",
-            stats.gcd().scalar(), stats.crit_rate().scalar(), stats.crit_multiplier().scalar(), stats.dh_rate().scalar());
-        println!("{:?}", stats);
+        });
     }
-
-    Ok(())
 }
 
-fn tui() -> Result<(), Box<dyn std::error::Error>> {
-    use cursive::{Cursive, CursiveExt};
-    use cursive::view::*;
-    use cursive::views::*;
-    use cursive::align::*;
-    use cursive::theme::*;
+fn main() -> eyre::Result<()> {
+    tracing_subscriber::fmt::init();
+    let (status_send, status_recv) = std::sync::mpsc::channel();
 
-    let items = load_items()?;
-    let mut siv = Cursive::new();
-    cursive::logger::init();
-
-    siv.add_global_callback('q', |s| s.quit());
-    siv.add_global_callback('p', Cursive::toggle_debug_console);
-
-    fn update_stats(s: &mut Cursive) {
-        let gearset: &mut Gearset = s.user_data().unwrap();
-        let stats = gearset.stats();
-        s.call_on_name("WD", |view: &mut TextView| view.set_content(format!("{}", stats.weapon_damage)));
-        s.call_on_name("MND", |view: &mut TextView| view.set_content(format!("{}", stats.mind)));
-        s.call_on_name("DH", |view: &mut TextView| view.set_content(format!("{}", stats.direct_hit)));
-        s.call_on_name("Crit", |view: &mut TextView| view.set_content(format!("{}", stats.critical)));
-        s.call_on_name("Det", |view: &mut TextView| view.set_content(format!("{}", stats.determination)));
-        s.call_on_name("SpS", |view: &mut TextView| view.set_content(format!("{}", stats.spell_speed)));
-        s.call_on_name("Pie", |view: &mut TextView| view.set_content(format!("{}", stats.piety)));
-        s.call_on_name("GCD", |view: &mut TextView| view.set_content(format!("{:.2}", stats.gcd().scalar())));
-        s.call_on_name("Est. GCD", |view: &mut TextView| view.set_content(format!("{:.4}", stats.adjusted_gcd())));
-        s.call_on_name("Crit Rate", |view: &mut TextView| view.set_content(format!("{:.2}", stats.crit_rate().scalar())));
-        s.call_on_name("Crit Mult", |view: &mut TextView| view.set_content(format!("{:.3}", stats.crit_multiplier().scalar())));
-        s.call_on_name("DH Rate", |view: &mut TextView| view.set_content(format!("{:.3}", stats.dh_rate().scalar())));
-        s.call_on_name("PPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.getP())));
-        s.call_on_name("DPS", |view: &mut TextView| view.set_content(format!("{:.2}", stats.balance_dps())));
-    }
-
-    fn on_select_item(s: &mut Cursive, item: &Item) {
-        let gearset: &mut Gearset = s.user_data().unwrap();
-        gearset.items[item.slot.clone() as usize] = item.clone();
-
-        update_stats(s);
-    }
-
-    fn on_select_food(s: &mut Cursive, food: &Item) {
-        let gearset: &mut Gearset = s.user_data().unwrap();
-        gearset.food = food.clone();
-
-        update_stats(s);
-    }
-
-    let mut selects: Vec<_> = vec![
-        ItemSlot::WEAPON,
-        ItemSlot::HEAD,
-        ItemSlot::BODY,
-        ItemSlot::HANDS,
-        ItemSlot::LEGS,
-        ItemSlot::FEET,
-        ItemSlot::EARRINGS,
-        ItemSlot::NECKLACE,
-        ItemSlot::BRACELET,
-        ItemSlot::LEFTRING,
-        ItemSlot::RIGHTRING,
-    ].into_iter()
-        .map(|slot| {
-            let mut select = SelectView::new();
-            items.iter().filter(|item| item.slot == slot).for_each(|item| select.add_item(item.name.to_string(), item.clone()));
-            select.set_on_select(on_select_item);
-
-            Dialog::around(LinearLayout::horizontal()
-                .child(PaddedView::lrtb(0, 2, 0, 0, TextView::new(slot.to_string()).v_align(VAlign::Center)))
-                .child(select.with_name("item")))
-        }).collect();
-    
-    let selects_right = selects.split_off(selects.len() / 2 + 1);
-
-    let mut siv = Cursive::new();
-    let set: Vec<_> = [ItemSlot::WEAPON, ItemSlot::HEAD, ItemSlot::BODY, ItemSlot::HANDS, ItemSlot::LEGS, ItemSlot::FEET, ItemSlot::EARRINGS, ItemSlot::NECKLACE, ItemSlot::BRACELET, ItemSlot::LEFTRING, ItemSlot::RIGHTRING].into_iter()
-        .map(|slot| {
-            items.iter().find(|item| item.slot == slot).unwrap().clone()
-        })
-        .collect();
-    let gearset = Gearset::from_items(set);
-
-
-    let mut left = LinearLayout::vertical();
-    selects.into_iter()
-        .for_each(|select| left.add_child(select));
-    
-    let mut meld_menu = LinearLayout::horizontal();
-    vec![
-        (MeldType::CRITICAL, "CRT X"),
-        (MeldType::DETERMINATION, "DET X"), 
-        (MeldType::DIRECTHIT, "DH X"),
-        (MeldType::SPELLSPEED, "SPS X")
-    ].into_iter()
-        .for_each(|(meld_type, materia)| {
-            meld_menu.add_child(Dialog::around(LinearLayout::vertical()
-                .child(TextView::new(materia))
-                .child(EditView::new()
-                    .on_edit(move |s: &mut Cursive, content: &str, _| {
-                        if let Ok(val) = content.parse() {
-                            s.call_on_name(materia, |view: &mut EditView| view.set_style(ColorStyle::inherit_parent()));
-                            s.with_user_data(|gearset: &mut Gearset| gearset.meld_x[meld_type as usize] = val);
-                            update_stats(s);
-                        } else {
-                            s.call_on_name(materia, |view: &mut EditView| view.set_style(ColorStyle::highlight()));
-                        }
-                    })
-                    .with_name(materia)
-                )));
-        });
-
-    vec![
-        (MeldType::CRITICAL, "CRT IX"),
-        (MeldType::DETERMINATION, "DET IX"), 
-        (MeldType::DIRECTHIT, "DH IX"),
-        (MeldType::SPELLSPEED, "SPS IX"),
-    ].into_iter()
-        .for_each(|(meld_type, materia)| {
-            meld_menu.add_child(Dialog::around(LinearLayout::vertical()
-                .child(TextView::new(materia))
-                .child(EditView::new()
-                    .on_edit(move |s: &mut Cursive, content: &str, _| {
-                        if let Ok(val) = content.parse() {
-                            s.call_on_name(materia, |view: &mut EditView| view.set_style(ColorStyle::inherit_parent()));
-                            s.with_user_data(|gearset: &mut Gearset| gearset.meld_ix[meld_type as usize] = val);
-                            update_stats(s);
-                        } else {
-                            s.call_on_name(materia, |view: &mut EditView| view.set_style(ColorStyle::highlight()));
-                        }
-                    })
-                    .with_name(materia)
-                )));
-        });
-
-    left.add_child(meld_menu);
-
-    let additional_parameters = LinearLayout::horizontal()
-        .child(Dialog::around(LinearLayout::vertical()
-                .child(TextView::new("Uptime%"))
-                .child(EditView::new()
-                    .on_edit(|s: &mut Cursive, content: &str, _| {
-                        if let Ok(val) = content.parse::<f64>() {
-                            if val > 0.0 && val <= 100.0 {
-                                s.call_on_name("Uptime", |view: &mut EditView| view.set_style(ColorStyle::inherit_parent()));
-                                s.with_user_data(|gearset: &mut Gearset| gearset.gcd_uptime = val / 100.0);
-                                update_stats(s);
-                            } else {
-                                s.call_on_name("Uptime", |view: &mut EditView| view.set_style(ColorStyle::highlight()));
-                            }
-                        } else {
-                            s.call_on_name("Uptime", |view: &mut EditView| view.set_style(ColorStyle::highlight()));
-                        }
-                    })
-                    .with_name("Uptime")
-                )));
-
-    left.add_child(additional_parameters);
-
-    let mut right = LinearLayout::vertical();
-    selects_right.into_iter()
-        .for_each(|select| right.add_child(select));
-    
-    let select_food = Dialog::around(LinearLayout::horizontal()
-        .child(PaddedView::lrtb(0, 2, 0, 0, TextView::new("Food").v_align(VAlign::Center)))
-        .child(
-            SelectView::new()
-                .with_all(items.clone().into_iter().filter(|item| item.slot == ItemSlot::FOOD).map(|item| (item.name.clone(), item.clone())))
-                .on_select(on_select_food)
-        ));
-
-    right.add_child(select_food);
-
-    let gear = LinearLayout::horizontal()
-        .child(left)
-        .child(right);
-
-    let mut stats = LinearLayout::horizontal();
-    vec!["WD", "MND", "DH", "Crit", "Det", "SpS", "Pie", "GCD", "Est. GCD", "Crit Rate", "Crit Mult", "DH Rate", "PPS", "DPS"].into_iter()
-        .for_each(|stat| {
-           stats.add_child(Dialog::around(LinearLayout::vertical()
-                .child(TextView::new(stat))
-                .child(TextView::new("0").with_name(stat))))
-        });
-
-    let main = LinearLayout::vertical()
-        .child(gear)
-        .child(stats.with_name("stats"));
-    siv.add_layer(main);
-
-    siv.call_on_all_named("item", |select: &mut SelectView| {
-        select.set_selection(0);
+    let app_link = UiLink::new(status_send);
+    std::thread::spawn({
+        let calc_app_link = app_link.clone();
+        move || {
+            calc_sets(calc_app_link).unwrap();
+        }
     });
-    
-    siv.set_user_data(gearset);
-    update_stats(&mut siv);
 
-    siv.run();
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "BiS Solver",
+        native_options,
+        Box::new(|cc| Box::new(Ui::new(cc, status_recv))),
+    );
 
     Ok(())
-}
-
-fn main() {
-    calc_sets(Stats::balance_dps).unwrap();
-    //calc_sets(Stats::dps).unwrap();
-    //tui().unwrap();
 }

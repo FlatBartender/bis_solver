@@ -7,8 +7,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-csv = "1.1"
-itertools = "0.10"
-rayon = "1.5"
-cursive = { version = "0.16", default-features = false, features = ["crossterm-backend"] }
-log = "0.4"
+csv = "1.1.6"
+itertools = "0.10.3"
+rayon = "1.5.3"
+cached = "0.38.0"
+eframe = "0.19.0"
+tracing = "0.1.36"
+tracing-subscriber = "0.3.15"
+eyre = "0.6.8"
+egui_extras = "0.19.0"
