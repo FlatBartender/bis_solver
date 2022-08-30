@@ -24,10 +24,6 @@ impl Scalable for f64 {
     }
 }
 
-const DOSIS_POTENCY: u32 = 330;
-const PHLEGMA_POTENCY: u32 = 510;
-const EUKRASIAN_DOSIS_POTENCY: u32 = 70;
-
 const DPS_FUNCTION: fn (&Stats) -> f64 = Stats::dps;
 
 trait StatRepo {
@@ -203,10 +199,10 @@ impl Stats {
     }
 
     fn apply_materias(&mut self, materias_x: &MatX, materias_ix: &MatIX) {
-        self.critical += materias_x[MeldType::CRITICAL as usize] * 36 + materias_ix[MeldType::CRITICAL as usize] * 12;
-        self.determination += materias_x[MeldType::DETERMINATION as usize] * 36 + materias_ix[MeldType::DETERMINATION as usize] * 12;
-        self.direct_hit += materias_x[MeldType::DIRECTHIT as usize] * 36 + materias_ix[MeldType::DIRECTHIT as usize] * 12;
-        self.spell_speed += materias_x[MeldType::SPELLSPEED as usize] * 36 + materias_ix[MeldType::SPELLSPEED as usize] * 12;
+        self.critical += materias_x[MeldType::Critical as usize] * 36 + materias_ix[MeldType::Critical as usize] * 12;
+        self.determination += materias_x[MeldType::Determination as usize] * 36 + materias_ix[MeldType::Determination as usize] * 12;
+        self.direct_hit += materias_x[MeldType::DirectHit as usize] * 36 + materias_ix[MeldType::DirectHit as usize] * 12;
+        self.spell_speed += materias_x[MeldType::SpellSpeed as usize] * 36 + materias_ix[MeldType::SpellSpeed as usize] * 12;
     }
 }
 
@@ -250,43 +246,43 @@ impl Item {
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.weapon_damage)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.mind)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.direct_hit)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.critical)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.determination)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.spell_speed)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
         row.col(|ui| {
             let label = NonZeroU32::new(self.stats.piety)
                 .map(|s| s.to_string())
-                .unwrap_or("".to_string());
+                .unwrap_or_else(|| "".to_string());
             ui.label(label);
         });
     }
@@ -303,32 +299,32 @@ struct Item {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
 enum ItemSlot {
-    WEAPON = 0,
-    HEAD,
-    BODY,
-    HANDS,
-    LEGS,
-    FEET,
-    EARRINGS,
-    NECKLACE,
-    BRACELET,
-    LEFTRING,
-    RIGHTRING,
-    FOOD,
+    Weapon = 0,
+    Head,
+    Body,
+    Hands,
+    Legs,
+    Feet,
+    Earrings,
+    Necklace,
+    Bracelet,
+    LeftRing,
+    RightRing,
+    Food,
 }
 
 const ITEM_SLOTS: [ItemSlot; 11] = [
-    ItemSlot::WEAPON,
-    ItemSlot::HEAD,
-    ItemSlot::BODY,
-    ItemSlot::HANDS,
-    ItemSlot::LEGS,
-    ItemSlot::FEET,
-    ItemSlot::EARRINGS,
-    ItemSlot::NECKLACE,
-    ItemSlot::BRACELET,
-    ItemSlot::LEFTRING,
-    ItemSlot::RIGHTRING,
+    ItemSlot::Weapon,
+    ItemSlot::Head,
+    ItemSlot::Body,
+    ItemSlot::Hands,
+    ItemSlot::Legs,
+    ItemSlot::Feet,
+    ItemSlot::Earrings,
+    ItemSlot::Necklace,
+    ItemSlot::Bracelet,
+    ItemSlot::LeftRing,
+    ItemSlot::RightRing,
 ];
 
 #[derive(Debug)]
@@ -336,22 +332,22 @@ enum ItemSlotConversionError {
     Invalid(String)
 }
 
-impl ItemSlot {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for ItemSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ItemSlot::WEAPON => "Weapon",
-            ItemSlot::HEAD => "Head",
-            ItemSlot::BODY => "Body",
-            ItemSlot::HANDS => "Hands",
-            ItemSlot::LEGS => "Legs",
-            ItemSlot::FEET => "Feet",
-            ItemSlot::EARRINGS => "Earrings",
-            ItemSlot::NECKLACE => "Necklace",
-            ItemSlot::BRACELET => "Bracelet",
-            ItemSlot::LEFTRING => "Left ring",
-            ItemSlot::RIGHTRING => "Right ring",
-            ItemSlot::FOOD => "Food"
-        }.to_string()
+            ItemSlot::Weapon => write!(f, "Weapon"),
+            ItemSlot::Head => write!(f, "Head"),
+            ItemSlot::Body => write!(f, "Body"),
+            ItemSlot::Hands => write!(f, "Hands"),
+            ItemSlot::Legs => write!(f, "Legs"),
+            ItemSlot::Feet => write!(f, "Feet"),
+            ItemSlot::Earrings => write!(f, "Earrings"),
+            ItemSlot::Necklace => write!(f, "Necklace"),
+            ItemSlot::Bracelet => write!(f, "Bracelet"),
+            ItemSlot::LeftRing => write!(f, "Left ring"),
+            ItemSlot::RightRing => write!(f, "Right ring"),
+            ItemSlot::Food => write!(f, "Food"),
+        }
     }
 }
 
@@ -362,19 +358,19 @@ impl FromStr for ItemSlot {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.to_string().to_lowercase();    
         match s.as_str() {
-            "arme" | "weapon" => Ok(Self::WEAPON),
-            "tête" | "head" => Ok(Self::HEAD),
-            "torse" | "body" => Ok(Self::BODY),
-            "mains" | "hands" => Ok(Self::HANDS),
-            "jambes" | "legs" => Ok(Self::LEGS),
-            "pieds" | "feet" => Ok(Self::FEET),
-            "oreille" | "earrings" => Ok(Self::EARRINGS),
-            "collier" | "necklace" => Ok(Self::NECKLACE),
-            "bracelet" | "bracelet" => Ok(Self::BRACELET),
-            "bague gauche" | "left ring" => Ok(Self::LEFTRING),
-            "bague droite" | "right ring" => Ok(Self::RIGHTRING),
-            "nourriture" | "food" => Ok(Self::FOOD),
-            "anneau" | "ring" => Ok(Self::LEFTRING),
+            "arme" | "weapon" => Ok(Self::Weapon),
+            "tête" | "head" => Ok(Self::Head),
+            "torse" | "body" => Ok(Self::Body),
+            "mains" | "hands" => Ok(Self::Hands),
+            "jambes" | "legs" => Ok(Self::Legs),
+            "pieds" | "feet" => Ok(Self::Feet),
+            "oreille" | "earrings" => Ok(Self::Earrings),
+            "collier" | "necklace" => Ok(Self::Necklace),
+            "bracelet" => Ok(Self::Bracelet),
+            "bague gauche" | "left ring" => Ok(Self::LeftRing),
+            "bague droite" | "right ring" => Ok(Self::RightRing),
+            "nourriture" | "food" => Ok(Self::Food),
+            "anneau" | "ring" => Ok(Self::LeftRing),
             _ => Err(ItemSlotConversionError::Invalid(format!("Invalid value: {}, expected an equip slot", s)))
         }
     }
@@ -382,10 +378,10 @@ impl FromStr for ItemSlot {
 
 #[derive(Debug, Copy, Clone)]
 enum MeldType {
-    CRITICAL = 0,
-    DETERMINATION,
-    DIRECTHIT,
-    SPELLSPEED,
+    Critical = 0,
+    Determination,
+    DirectHit,
+    SpellSpeed,
 }
 
 type MatX = [u32; 4];
@@ -433,15 +429,15 @@ impl std::cmp::PartialOrd for Gearset {
 
 impl std::cmp::Ord for Gearset {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(&other).unwrap()
+        self.partial_cmp(other).unwrap()
     }
 }
 
 impl Gearset {
     fn from_items(items: Vec<Item>) -> Self {
         let food = Item {
-            slot: ItemSlot::FOOD,
-            name: format!("NO FOOD"),
+            slot: ItemSlot::Food,
+            name: "NO FOOD".to_string(),
             stats: Stats::default(),
             meld_slots: 0,
             overmeldable: 0,
@@ -487,20 +483,20 @@ impl Gearset {
 
         for item in self.items.iter() {
             if item.overmeldable == 0 {
-                slots_x[CRITICAL as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
-                slots_x[DETERMINATION as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
-                slots_x[DIRECTHIT as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
-                slots_x[SPELLSPEED as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
+                slots_x[Critical as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
+                slots_x[Determination as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
+                slots_x[DirectHit as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
+                slots_x[SpellSpeed as usize] += item.meld_slots.min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
             } else {
-                slots_x[CRITICAL as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
-                slots_x[DETERMINATION as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
-                slots_x[DIRECTHIT as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
-                slots_x[SPELLSPEED as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
+                slots_x[Critical as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 36.0).round() as u32);
+                slots_x[Determination as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 36.0).round() as u32);
+                slots_x[DirectHit as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 36.0).round() as u32);
+                slots_x[SpellSpeed as usize] += (item.meld_slots + 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 36.0).round() as u32);
 
-                slots_ix[CRITICAL as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 12.0).round() as u32);
-                slots_ix[DETERMINATION as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 12.0).round() as u32);
-                slots_ix[DIRECTHIT as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 12.0).round() as u32);
-                slots_ix[SPELLSPEED as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 12.0).round() as u32);
+                slots_ix[Critical as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.critical as f64) / 12.0).round() as u32);
+                slots_ix[Determination as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.determination as f64) / 12.0).round() as u32);
+                slots_ix[DirectHit as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.direct_hit as f64) / 12.0).round() as u32);
+                slots_ix[SpellSpeed as usize] += (5 - item.meld_slots - 1).min(((item.stat_max() as f64 - item.stats.spell_speed as f64) / 12.0).round() as u32);
             }
         }
 
@@ -509,7 +505,7 @@ impl Gearset {
 
     fn is_valid(&self) -> bool {
         use ItemSlot::*;
-        !(self.items[LEFTRING as usize].name == self.items[RIGHTRING as usize].name && self.items[LEFTRING as usize].overmeldable == 0)
+        !(self.items[LeftRing as usize].name == self.items[RightRing as usize].name && self.items[LeftRing as usize].overmeldable == 0)
     }
 }
 
@@ -558,31 +554,39 @@ fn load_items() -> eyre::Result<Vec<Item>> {
 fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
     ui_link.message("Loading items...")?;
     let items = load_items()?;
-    let arme: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::WEAPON).collect();
-    let tête: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::HEAD).collect();
-    let torse: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::BODY).collect();
-    let mains: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::HANDS).collect();
-    let jambes: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::LEGS).collect();
-    let pieds: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::FEET).collect();
-    let oreille: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::EARRINGS).collect();
-    let collier: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::NECKLACE).collect();
-    let bracelet: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::BRACELET).collect();
-    let bagues: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::LEFTRING)
+    let (arme, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Weapon);
+    let (tête, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Head);
+    let (torse, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Body);
+    let (mains, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Hands);
+    let (jambes, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Legs);
+    let (pieds, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Feet);
+    let (oreille, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Earrings);
+    let (collier, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Necklace);
+    let (bracelet, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Bracelet);
+    let (bagues, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::LeftRing);
+    let (nourriture, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Food);
+
+    if !items.is_empty() {
+        tracing::error!("Not all items were partitioned: {:?}", items);
+        ui_link.message("ERROR: Not all items were partitioned")?;
+        return Err(eyre::eyre!("Not all items were partitioned"));
+    }
+
+    let bagues: Vec<_> = bagues.into_iter()
         .combinations(2)
         .collect();
 
-    let nourriture: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::FOOD).collect();
 
     let product = vec![
-            arme.clone().into_iter(),
-            tête.clone().into_iter(),
-            torse.clone().into_iter(),
-            mains.clone().into_iter(),
-            jambes.clone().into_iter(),
-            pieds.clone().into_iter(),
-            oreille.clone().into_iter(),
-            collier.clone().into_iter(),
-            bracelet.clone().into_iter(),
+            arme.into_iter(),
+            tête.into_iter(),
+            torse.into_iter(),
+            mains.into_iter(),
+            jambes.into_iter(),
+            pieds.into_iter(),
+            oreille.into_iter(),
+            collier.into_iter(),
+            bracelet.into_iter(),
         ].into_iter()
         .multi_cartesian_product()
         .cartesian_product(bagues)
@@ -590,19 +594,18 @@ fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
 
     ui_link.message("Ranking gear...")?;
 
-    let results: Vec<_> = product
-        .map(|items| Gearset::from_items(items))
+    let results = product
+        .map(Gearset::from_items)
         .filter(|gearset| {
             gearset.is_valid()
         })
-        .map(|gearset| std::cmp::Reverse(gearset))
+        .map(std::cmp::Reverse)
         .k_smallest(10)
-        .map(|rev| rev.0)
-        .collect();
+        .map(|rev| rev.0);
 
     ui_link.message("Ranking food/melds...")?;
 
-    let melds: Vec<_> = results.into_iter()
+    results.into_iter()
         .flat_map(|gearset| {
             let (possible_melds_x, possible_melds_ix) = gearset.possible_melds();
             let (meld_slots_x, meld_slots_ix) = gearset.meld_slots();
@@ -632,13 +635,9 @@ fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
             gearset.meld_ix = meld_ix.try_into().unwrap();
             gearset
         })
-        .map(|gearset| std::cmp::Reverse(gearset))
+        .map(std::cmp::Reverse)
         .k_smallest(10)
         .map(|rev| rev.0)
-        .collect();
-
-    melds.into_iter()
-        .take(10)
         .for_each(|gearset| {
             ui_link.gearset(gearset).unwrap();
         });
@@ -685,14 +684,14 @@ impl UiLink {
     }
 
     pub fn gearset(&self, gearset: Gearset) -> eyre::Result<()> {
-        self.status_send.send(UiMessage::NewGearset(gearset))?;
+        self.status_send.send(UiMessage::NewGearset(Box::new(gearset)))?;
         Ok(())
     }
 }
 
 enum UiMessage {
     StatusMessage(String),
-    NewGearset(Gearset),
+    NewGearset(Box<Gearset>),
 }
 
 struct Ui {
@@ -719,7 +718,7 @@ impl Ui {
 
         match message {
             StatusMessage(message) => self.status = message,
-            NewGearset(gearset) => self.gearsets.push(gearset),
+            NewGearset(gearset) => self.gearsets.push(*gearset),
         }
     }
 
@@ -814,7 +813,7 @@ impl Ui {
                 for (slot_index, slot) in ITEM_SLOTS.iter().enumerate() {
                     body.row(text_size, |mut row| {
                         row.col(|ui| {
-                            ui.label(slot.to_string());
+                            ui.label(format!("{}", slot));
                         });
                         gearset.items[slot_index].row_ui(&mut row);
                     });
