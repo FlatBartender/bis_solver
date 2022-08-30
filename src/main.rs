@@ -242,6 +242,58 @@ impl StatRepo for Stats {
     }
 }
 
+impl Item {
+    pub fn row_ui(&self, row: &mut egui_extras::TableRow) {
+        use std::num::NonZeroU32;
+
+        row.col(|ui| {
+            ui.label(&self.name);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.weapon_damage)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.mind)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.direct_hit)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.critical)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.determination)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.spell_speed)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+        row.col(|ui| {
+            let label = NonZeroU32::new(self.stats.piety)
+                .map(|s| s.to_string())
+                .unwrap_or("".to_string());
+            ui.label(label);
+        });
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Item {
     slot: ItemSlot,
@@ -266,6 +318,20 @@ enum ItemSlot {
     RIGHTRING,
     FOOD,
 }
+
+const ITEM_SLOTS: [ItemSlot; 11] = [
+    ItemSlot::WEAPON,
+    ItemSlot::HEAD,
+    ItemSlot::BODY,
+    ItemSlot::HANDS,
+    ItemSlot::LEGS,
+    ItemSlot::FEET,
+    ItemSlot::EARRINGS,
+    ItemSlot::NECKLACE,
+    ItemSlot::BRACELET,
+    ItemSlot::LEFTRING,
+    ItemSlot::RIGHTRING,
+];
 
 #[derive(Debug)]
 enum ItemSlotConversionError {
@@ -616,6 +682,7 @@ struct Ui {
 
     status: String,
     gearsets: Vec<Gearset>,
+    selected_gearset: Option<usize>,
 }
 
 impl Ui {
@@ -625,6 +692,7 @@ impl Ui {
 
             status: "Startup".to_string(),
             gearsets: Vec::new(),
+            selected_gearset: None,
         }
     }
 
@@ -634,6 +702,112 @@ impl Ui {
         match message {
             StatusMessage(message) => self.status = message,
             NewGearset(gearset) => self.gearsets.push(gearset),
+        }
+    }
+
+    fn status_bar(&mut self, ui: &mut egui::Ui) {
+        ui.label(&self.status);
+    }
+
+    fn gearset_selector(&mut self, ui: &mut egui::Ui) {
+        use egui_extras::{Size, TableBuilder};
+
+        let text_size = egui::TextStyle::Body.resolve(ui.style()).size;
+
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Size::initial(30.0).at_least(30.0))
+            .column(Size::initial(120.0).at_least(120.0));
+
+        table.header(20.0, |mut header| {
+            header.col(|ui| {
+                ui.heading("#");
+            });
+            header.col(|ui| {
+                ui.heading("DPS");
+            });
+        })
+        .body(|mut body| {
+            for (index, gearset) in self.gearsets.iter().enumerate() {
+                body.row(text_size, |mut row| {
+                    row.col(|ui| {
+                        ui.radio_value(&mut self.selected_gearset, Some(index), (index+1).to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(DPS_FUNCTION(&gearset.stats()).to_string());
+                    });
+                });
+            }
+        });
+    }
+
+    fn selected_gearset_ui(&mut self, ui: &mut egui::Ui) {
+        use egui_extras::{Size, TableBuilder};
+
+        if let Some(index) = self.selected_gearset {
+            let gearset = &self.gearsets[index];
+
+            let text_size = egui::TextStyle::Body.resolve(ui.style()).size;
+
+            let table = TableBuilder::new(ui)
+                .striped(true)
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .column(Size::initial(60.0).at_least(60.0))
+                .column(Size::remainder().at_least(260.0))
+                .column(Size::initial(40.0).at_least(40.0))
+                .column(Size::initial(40.0).at_least(40.0))
+                .column(Size::initial(40.0).at_least(40.0))
+                .column(Size::initial(40.0).at_least(40.0))
+                .column(Size::initial(40.0).at_least(40.0))
+                .column(Size::initial(40.0).at_least(40.0))
+                .column(Size::initial(40.0).at_least(40.0));
+
+            table.header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("Slot");
+                });
+                header.col(|ui| {
+                    ui.heading("Name");
+                });
+                header.col(|ui| {
+                    ui.heading("WD");
+                });
+                header.col(|ui| {
+                    ui.heading("Mind");
+                });
+                header.col(|ui| {
+                    ui.heading("DH");
+                });
+                header.col(|ui| {
+                    ui.heading("Crit");
+                });
+                header.col(|ui| {
+                    ui.heading("Det");
+                });
+                header.col(|ui| {
+                    ui.heading("SpS");
+                });
+                header.col(|ui| {
+                    ui.heading("Pie");
+                });
+            })
+            .body(|mut body| {
+                for (slot_index, slot) in ITEM_SLOTS.iter().enumerate() {
+                    body.row(text_size, |mut row| {
+                        row.col(|ui| {
+                            ui.label(slot.to_string());
+                        });
+                        gearset.items[slot_index].row_ui(&mut row);
+                    });
+                }
+                body.row(text_size, |mut row| {
+                    row.col(|ui| {
+                        ui.label("Food");
+                    });
+                    gearset.food.row_ui(&mut row);
+                });
+            });
         }
     }
 }
@@ -651,41 +825,15 @@ impl eframe::App for Ui {
         }
 
         egui::TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
-            ui.label(&self.status);
+            self.status_bar(ui);
+        });
+
+        egui::SidePanel::left("gearset_selector").show(ctx, |ui| {
+            self.gearset_selector(ui);
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            use egui_extras::{Size, TableBuilder};
-
-            let text_size = egui::TextStyle::Body.resolve(ui.style()).size;
-
-            let mut table = TableBuilder::new(ui)
-                .striped(true)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Size::initial(20.0).at_least(20.0))
-                .column(Size::initial(120.0).at_least(40.0))
-                .resizable(true);
-
-            table.header(20.0, |mut header| {
-                header.col(|ui| {
-                    ui.heading("#");
-                });
-                header.col(|ui| {
-                    ui.heading("DPS");
-                });
-            })
-            .body(|mut body| {
-                for (index, gearset) in self.gearsets.iter().enumerate() {
-                    body.row(20.0, |mut row| {
-                        row.col(|ui| {
-                            ui.label((index+1).to_string());
-                        });
-                        row.col(|ui| {
-                            ui.label(DPS_FUNCTION(&gearset.stats()).to_string());
-                        });
-                    });
-                }
-            });
+            self.selected_gearset_ui(ui);
         });
     }
 }
