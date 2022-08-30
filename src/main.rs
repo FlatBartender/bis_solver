@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use rayon::prelude::*;
 
 struct Unit<const NUMERATOR: u32, const DENOMINATOR: u32>(u32);
 
@@ -170,7 +169,7 @@ trait StatRepo {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Hash)]
 struct Stats {
     weapon_damage: u32,
     mind: u32,
@@ -180,7 +179,6 @@ struct Stats {
     critical: u32,
     determination: u32,
     spell_speed: u32,
-    gcd_uptime: f64,
 }
 
 impl Stats {
@@ -238,7 +236,7 @@ impl StatRepo for Stats {
         self.spell_speed
     }
     fn gcd_uptime(&self) -> f64 {
-        self.gcd_uptime
+        1.0
     }
 }
 
@@ -294,7 +292,7 @@ impl Item {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
 struct Item {
     slot: ItemSlot,
     name: String,
@@ -303,7 +301,7 @@ struct Item {
     overmeldable: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
 enum ItemSlot {
     WEAPON = 0,
     HEAD,
@@ -376,6 +374,7 @@ impl FromStr for ItemSlot {
             "bague gauche" | "left ring" => Ok(Self::LEFTRING),
             "bague droite" | "right ring" => Ok(Self::RIGHTRING),
             "nourriture" | "food" => Ok(Self::FOOD),
+            "anneau" | "ring" => Ok(Self::LEFTRING),
             _ => Err(ItemSlotConversionError::Invalid(format!("Invalid value: {}, expected an equip slot", s)))
         }
     }
@@ -401,17 +400,41 @@ const SAGE_BASE: Stats = Stats {
     critical: 400,
     determination: 390,
     spell_speed: 400,
-    gcd_uptime: 1.0,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 struct Gearset {
     base: Stats,
     items: [Item; 11],
     food: Item,
     meld_x: MatX,
     meld_ix: MatIX,
-    gcd_uptime: f64,
+}
+
+impl std::cmp::PartialEq for Gearset {
+    fn eq(&self, other: &Self) -> bool {
+        self.items[0..9] == other.items[0..9]
+            && self.items[9..11].contains(&other.items[9])
+            && self.items[9..11].contains(&other.items[10])
+            && self.food == other.food
+            && self.meld_x == other.meld_x
+            && self.meld_ix == other.meld_ix
+    }
+}
+
+impl std::cmp::PartialOrd for Gearset {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let a = DPS_FUNCTION(&self.stats());
+        let b = DPS_FUNCTION(&other.stats());
+
+        a.partial_cmp(&b)
+    }
+}
+
+impl std::cmp::Ord for Gearset {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(&other).unwrap()
+    }
 }
 
 impl Gearset {
@@ -430,7 +453,6 @@ impl Gearset {
             food,
             meld_x: MatX::default(),
             meld_ix: MatIX::default(),
-            gcd_uptime: 1.0,
         }
     }
 
@@ -442,7 +464,6 @@ impl Gearset {
         stats.add(&self.base);
         stats.apply_food(&self.food);
         stats.apply_materias(&self.meld_x, &self.meld_ix);
-        stats.gcd_uptime = self.gcd_uptime;
         stats
     }
 
@@ -510,7 +531,6 @@ impl Item {
                 critical: record.get(7).unwrap().parse().unwrap_or_default(),
                 determination: record.get(8).unwrap().parse().unwrap_or_default(),
                 spell_speed: record.get(9).unwrap().parse().unwrap_or_default(),
-                gcd_uptime: 1.0,
             },
             meld_slots: record.get(10).unwrap().parse().unwrap_or_default(),
             overmeldable: record.get(11).unwrap().parse().unwrap_or_default(),
@@ -547,8 +567,10 @@ fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
     let oreille: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::EARRINGS).collect();
     let collier: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::NECKLACE).collect();
     let bracelet: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::BRACELET).collect();
-    let bague_gauche: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::LEFTRING).collect();
-    let bague_droite: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::RIGHTRING).collect();
+    let bagues: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::LEFTRING)
+        .combinations(2)
+        .collect();
+
     let nourriture: Vec<_> = items.clone().into_iter().filter(|item| item.slot == ItemSlot::FOOD).collect();
 
     let product = vec![
@@ -561,35 +583,32 @@ fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
             oreille.clone().into_iter(),
             collier.clone().into_iter(),
             bracelet.clone().into_iter(),
-            bague_gauche.clone().into_iter(),
-            bague_droite.clone().into_iter(),
         ].into_iter()
-        .multi_cartesian_product();
-    
+        .multi_cartesian_product()
+        .cartesian_product(bagues)
+        .map(|(items, rings)| items.into_iter().chain(rings.into_iter()).collect::<Vec<_>>());
+
     ui_link.message("Ranking gear...")?;
 
-    let mut results: Vec<_> = product
+    let results: Vec<_> = product
         .map(|items| Gearset::from_items(items))
-        .filter_map(|gearset| {
-            if !gearset.is_valid() { 
-                None
-            } else {
-                Some((DPS_FUNCTION(&gearset.stats()), gearset))
-            }
-    }).collect();
+        .filter(|gearset| {
+            gearset.is_valid()
+        })
+        .map(|gearset| std::cmp::Reverse(gearset))
+        .k_smallest(10)
+        .map(|rev| rev.0)
+        .collect();
 
-    results.sort_by(|(a_dps, _), (b_dps, _)| b_dps.partial_cmp(a_dps).unwrap());
-    results.dedup_by(|(a_dps, _), (b_dps, _)| a_dps == b_dps);
-
-    let candidates: Vec<_> = results[..10].iter().cloned().collect();
-    
     ui_link.message("Ranking food/melds...")?;
 
-    let mut melds: Vec<_> = candidates.into_iter()
-        .map(|(_, gearset)| gearset)
+    let melds: Vec<_> = results.into_iter()
         .flat_map(|gearset| {
             let (possible_melds_x, possible_melds_ix) = gearset.possible_melds();
             let (meld_slots_x, meld_slots_ix) = gearset.meld_slots();
+            tracing::debug!("{:?}", gearset.items);
+            tracing::debug!("possible: {:?}, {:?}", possible_melds_x, possible_melds_ix);
+            tracing::debug!("slots: {:?}, {:?}", meld_slots_x, meld_slots_ix);
 
             let tentative_meld_x: Vec<_> = possible_melds_x.into_iter()
                 .map(|materia_count| (0..=materia_count))
@@ -602,26 +621,25 @@ fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
                 .filter(|meld| meld.iter().sum::<u32>() == meld_slots_ix)
                 .collect();
 
+            tracing::debug!("possible melds X: {}, IX: {}", tentative_meld_x.len(), tentative_meld_ix.len());
+
             std::iter::once(gearset).cartesian_product(nourriture.iter()).cartesian_product(tentative_meld_x.into_iter()).cartesian_product(tentative_meld_ix.into_iter())
         })
         .map(|(((gearset, food), meld_x), meld_ix)| (gearset, food, meld_x, meld_ix))
-        .par_bridge()
         .map(|(mut gearset, food, meld_x, meld_ix)| {
             gearset.food = food.clone();
             gearset.meld_x = meld_x.try_into().unwrap();
             gearset.meld_ix = meld_ix.try_into().unwrap();
             gearset
         })
-        .map(|gearset| {
-            (DPS_FUNCTION(&gearset.stats()), gearset)
-        })
+        .map(|gearset| std::cmp::Reverse(gearset))
+        .k_smallest(10)
+        .map(|rev| rev.0)
         .collect();
-
-    melds.sort_by(|(a_dps, _,), (b_dps, _,)| b_dps.partial_cmp(a_dps).unwrap());
 
     melds.into_iter()
         .take(10)
-        .for_each(|(_, gearset)| {
+        .for_each(|gearset| {
             ui_link.gearset(gearset).unwrap();
         });
 
@@ -635,7 +653,7 @@ fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
     //            println!("        Item: {}", item.name);
     //        });
     //    println!("        Food: {}", gearset.food.name);
-    //    
+    //
     //    println!("        Melds: {} CRT X, {} DET X, {} DH X, {} SPS X, {} CRT IX, {} DET IX, {} DH IX, {} SPS IX",
     //        gearset.meld_x[0], gearset.meld_x[1], gearset.meld_x[2], gearset.meld_x[3],
     //        gearset.meld_ix[0], gearset.meld_ix[1], gearset.meld_ix[2], gearset.meld_ix[3]);

@@ -34,14 +34,10 @@ bracelet;Abyssos Amulet of Healing;;167;162;95;;;136;;2;0
 bracelet;Augmented Lunar Envoy's Bracelets of Healing;;167;162;;;136;95;;2;0
 bracelet;Purgatory Amulet of Healing;;149;142;;;91;;130;1;0
 bracelet;Rinascita Bracelet of Healing;;149;142;91;;130;;;1;1
-left ring;Abyssos Ring of Healing;;167;162;;;136;95;;2;0
-left ring;Augmented Lunar Envoy's Ring of Healing;;167;162;136;;95;;;2;0
-left ring;Purgatory Ring of Healing;;149;142;;;91;;130;1;0
-left ring;Rinascita Ring of Healing;;149;142;;;130;91;;1;1
-right ring;Abyssos Ring of Healing;;167;162;;;136;95;;2;0
-right ring;Augmented Lunar Envoy's Ring of Healing;;167;162;136;;95;;;2;0
-right ring;Purgatory Ring of Healing;;149;142;;;91;;130;1;0
-right ring;Rinascita Ring of Healing;;149;142;;;130;91;;1;1
+ring;Abyssos Ring of Healing;;167;162;;;136;95;;2;0
+ring;Augmented Lunar Envoy's Ring of Healing;;167;162;136;;95;;;2;0
+ring;Purgatory Ring of Healing;;149;142;;;91;;130;1;0
+ring;Rinascita Ring of Healing;;149;142;;;130;91;;1;1
 food;Carrot Pudding;;;;;;58;97;;;
 food;Garlean Pizza;;;;;;97;;58;;
 food;Gyros;;;;96;;;58;;;
