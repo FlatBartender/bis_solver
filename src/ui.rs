@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::data::ITEM_SLOTS;
-use crate::solver::DPS_FUNCTION;
+use crate::solver::*;
 
 impl crate::data::Gearset {
     pub fn table_ui(&mut self, ui: &mut egui::Ui) {
@@ -146,9 +146,7 @@ impl<T: crate::data::StatRepo> StatRepoUi for T {
     }
 
     fn row_ui_in_depth(&self, row: &mut egui_extras::TableRow) {
-        row.col(|ui| {
-            ui.label(format!("{:.2}", self.dps()));
-        });
+        row.col(|_ui| {});
         row.col(|_ui| {});
         row.col(|ui| {
             ui.label(format!("{:.2}%", self.dh_rate().scalar()*100.0));
@@ -197,6 +195,10 @@ impl eframe::App for Ui {
             }
         }
 
+        egui::TopBottomPanel::top("tabs_panel").show(ctx, |ui| {
+            self.tabs(ui);
+        });
+
         egui::TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
             self.status_bar(ui);
         });
@@ -206,16 +208,9 @@ impl eframe::App for Ui {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            if let Some(index) = self.selected_gearset_a {
-                ui.push_id("gearset_a", |ui| {
-                    self.gearsets[index].table_ui(ui);
-                });
-            }
-            ui.separator();
-            if let Some(index) = self.selected_gearset_b {
-                ui.push_id("gearset_b", |ui| {
-                    self.gearsets[index].table_ui(ui);
-                });
+            match self.tab {
+                Tab::Solver => self.solver_tab(ui),
+                Tab::Comparator => self.comparator_tab(ui),
             }
         });
     }
@@ -223,11 +218,11 @@ impl eframe::App for Ui {
 
 #[derive(Clone)]
 pub struct UiLink {
-    status_send: std::sync::mpsc::Sender<UiMessage>,
+    status_send: std::sync::mpsc::SyncSender<UiMessage>,
 }
 
 impl UiLink {
-    pub fn new(status_send: std::sync::mpsc::Sender<UiMessage>) -> Self {
+    fn new(status_send: std::sync::mpsc::SyncSender<UiMessage>) -> Self {
         Self {
             status_send,
         }
@@ -238,45 +233,145 @@ impl UiLink {
         Ok(())
     }
 
-    pub fn gearset(&self, gearset: crate::data::Gearset) -> eyre::Result<()> {
-        self.status_send.send(UiMessage::NewGearset(Box::new(gearset)))?;
+    fn new_gearsets(&self, message: Vec<crate::data::Gearset>) -> eyre::Result<()> {
+        self.status_send.send(UiMessage::NewGearsets(Box::new(message)))?;
         Ok(())
     }
 }
 
-pub enum UiMessage {
+enum UiMessage {
     StatusMessage(String),
-    NewGearset(Box<crate::data::Gearset>),
+    NewGearsets(Box<Vec<crate::data::Gearset>>),
+}
+
+fn load_items() -> eyre::Result<Vec<crate::data::Item>> {
+    const ITEMS: &str = include_str!("items.csv");
+
+    let csv_reader = csv::ReaderBuilder::new()
+        .delimiter(b';')
+        .quoting(false)
+        .from_reader(ITEMS.as_bytes());
+
+    let records: Vec<_> = csv_reader.into_records()
+        .collect::<Result<_, _>>()?;
+    records.into_iter()
+        .map(|record| crate::data::Item::try_from(record))
+        .collect::<Result<Vec<_>, _>>()
+}
+
+#[derive(PartialEq, Eq)]
+enum Tab {
+    Solver,
+    Comparator,
 }
 
 pub struct Ui {
     status_recv: std::sync::mpsc::Receiver<UiMessage>,
+    ui_link: UiLink,
 
     status: String,
     gearsets: Vec<crate::data::Gearset>,
 
     selected_gearset_a: Option<usize>,
     selected_gearset_b: Option<usize>,
+
+    items: Vec<crate::data::Item>,
+
+    solver: std::sync::Arc<dyn crate::solver::Solver + Send + Sync>,
+    solver_type: crate::solver::SolverType,
+    evaluator_type: crate::solver::EvaluatorType,
+    k_best: usize,
+
+    tab: Tab,
 }
 
 impl Ui {
-    pub fn new(_cc: &eframe::CreationContext<'_>, status_recv: std::sync::mpsc::Receiver<UiMessage>) -> Self {
-        Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> eyre::Result<Self> {
+        let (status_send, status_recv) = std::sync::mpsc::sync_channel(255);
+        let items = load_items()?;
+        let ui_link = UiLink::new(status_send);
+        Ok(Self {
             status_recv,
+            ui_link: ui_link.clone(),
 
             status: "Startup".to_string(),
             gearsets: Vec::new(),
+
             selected_gearset_a: None,
             selected_gearset_b: None,
-        }
+
+            items: items.clone(),
+
+            solver: std::sync::Arc::new(crate::solver::SplitSolver::<crate::solver::InfiniteDummyEvaluator>::new(items, ui_link, ())),
+            solver_type: crate::solver::SolverType::Split,
+            evaluator_type: crate::solver::EvaluatorType::InfiniteDummy,
+            k_best: 10,
+
+            tab: Tab::Solver,
+        })
     }
 
-    pub fn handle_message(&mut self, message: UiMessage) {
+    fn handle_message(&mut self, message: UiMessage) {
         use UiMessage::*;
 
         match message {
             StatusMessage(message) => self.status = message,
-            NewGearset(gearset) => self.gearsets.push(*gearset),
+            NewGearsets(message) => self.gearsets = *message,
+        }
+    }
+
+    fn rebuild_solver(&mut self) {
+        self.solver = std::sync::Arc::new(match (&self.solver_type, &self.evaluator_type) {
+            (SolverType::Split, EvaluatorType::InfiniteDummy) => SplitSolver::<InfiniteDummyEvaluator>::new(self.items.clone(), self.ui_link.clone(), ()),
+        });
+    }
+
+    fn tabs(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.tab, Tab::Solver, "Solver");
+            ui.selectable_value(&mut self.tab, Tab::Comparator, "Comparator");
+        });
+    }
+
+    fn solver_tab(&mut self, ui: &mut egui::Ui) {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.label("Solver");
+                ui.selectable_value(&mut self.solver_type, SolverType::Split, "Split");
+            });
+            ui.horizontal(|ui| {
+                ui.label("Evaluator");
+                if ui.selectable_value(&mut self.evaluator_type, EvaluatorType::InfiniteDummy, "Infinite Dummy").clicked() {
+                    self.rebuild_solver();
+                }
+            });
+            ui.add(egui::Slider::new(&mut self.k_best, 1..=1000).text("K Best sets"));
+            if ui.button("Run solver").clicked() {
+                std::thread::spawn({
+                    let solver = self.solver.clone();
+                    let ui_link = self.ui_link.clone();
+                    let k_best = self.k_best.clone();
+                    move || {
+                        ui_link.new_gearsets(solver.k_best_sets(k_best).unwrap()).unwrap();
+                        ui_link.message(format!("Finished finding top {} sets!", k_best)).unwrap();
+                    }
+                });
+            }
+        });
+        
+    }
+
+    fn comparator_tab(&mut self, ui: &mut egui::Ui) {
+        if let Some(index) = self.selected_gearset_a {
+            ui.push_id("gearset_a", |ui| {
+                self.gearsets[index].table_ui(ui);
+            });
+        }
+        ui.separator();
+        if let Some(index) = self.selected_gearset_b {
+            ui.push_id("gearset_b", |ui| {
+                self.gearsets[index].table_ui(ui);
+            });
         }
     }
 
@@ -318,7 +413,7 @@ impl Ui {
                         ui.radio_value(&mut self.selected_gearset_b, Some(index), "");
                     });
                     row.col(|ui| {
-                        ui.label(format!("{:.2}", DPS_FUNCTION(&gearset.stats())));
+                        ui.label(format!("{:.2}", self.solver.dps(&gearset)));
                     });
                 });
             }

@@ -1,13 +1,13 @@
 use itertools::Itertools;
 
+use crate::utils::Scalable;
 use crate::ui::UiLink;
 use crate::data::*;
 
-pub const DPS_FUNCTION: fn (&Stats) -> f64 = Stats::dps;
-
+// SGE base but viera/veena
 const SAGE_BASE: Stats = Stats {
     weapon_damage: 0,
-    mind: 448,
+    mind: 450,
     vitality: 390,
     piety: 390,
     direct_hit: 400,
@@ -64,86 +64,61 @@ impl std::str::FromStr for ItemSlot {
     }
 }
 
-const ITEMS: &str = include_str!("items.csv");
-
-fn load_items() -> eyre::Result<Vec<Item>> {
-    let csv_reader = csv::ReaderBuilder::new()
-        .delimiter(b';')
-        .quoting(false)
-        .from_reader(ITEMS.as_bytes());
-
-    let records: Vec<_> = csv_reader.into_records()
-        .collect::<Result<_, _>>()?;
-    records.into_iter()
-        .map(|record| Item::from_record(&record))
-        .collect::<Result<Vec<_>, _>>()
+pub trait Solver {
+    fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>>;
+    fn dps(&self, gearset: &Gearset) -> f64;
 }
 
-impl crate::data::Item {
-    pub fn from_record(record: &csv::StringRecord) -> eyre::Result<Self> {
-        let item = Self {
-            slot: record.get(0).unwrap().parse().unwrap(),
-            name: record.get(1).unwrap().to_string(),
-            stats: Stats {
-                weapon_damage: record.get(2).unwrap().parse().unwrap_or_default(),
-                mind: record.get(3).unwrap().parse().unwrap_or_default(),
-                vitality: record.get(4).unwrap().parse().unwrap_or_default(),
-                piety: record.get(5).unwrap().parse().unwrap_or_default(),
-                direct_hit: record.get(6).unwrap().parse().unwrap_or_default(),
-                critical: record.get(7).unwrap().parse().unwrap_or_default(),
-                determination: record.get(8).unwrap().parse().unwrap_or_default(),
-                spell_speed: record.get(9).unwrap().parse().unwrap_or_default(),
-            },
-            meld_slots: record.get(10).unwrap().parse().unwrap_or_default(),
-            overmeldable: record.get(11).unwrap().parse().unwrap_or_default(),
-        };
+pub trait Evaluator: Ord {
+    type Data: Sized;
+    fn wrap(gearset: Gearset, data: &Self::Data) -> Self;
+    fn dps(gearset: &Gearset, data: &Self::Data) -> f64;
+    fn unwrap(self) -> Gearset;
+}
 
-        Ok(item)
+pub struct SplitSolver<E: Evaluator> {
+    items: Vec<Item>,
+    ui_link: UiLink,
+    evaluator_data: E::Data,
+}
+
+impl<E: Evaluator> SplitSolver<E> {
+    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator_data: E::Data) -> Self {
+        Self {
+            items,
+            ui_link,
+            evaluator_data,
+        }
     }
 }
 
-impl std::cmp::PartialOrd for crate::data::Gearset {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let a = DPS_FUNCTION(&self.stats());
-        let b = DPS_FUNCTION(&other.stats());
+impl<E: Evaluator> Solver for SplitSolver<E> {
+    fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>> {
+        self.ui_link.message("Loading items...")?;
+        let items = self.items.clone();
+        let (arme, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Weapon);
+        let (tête, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Head);
+        let (torse, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Body);
+        let (mains, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Hands);
+        let (jambes, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Legs);
+        let (pieds, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Feet);
+        let (oreille, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Earrings);
+        let (collier, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Necklace);
+        let (bracelet, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Bracelet);
+        let (bagues, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::LeftRing);
+        let (nourriture, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Food);
 
-        a.partial_cmp(&b)
-    }
-}
+        if !items.is_empty() {
+            tracing::error!("Not all items were partitioned: {:?}", items);
+            self.ui_link.message("ERROR: Not all items were partitioned")?;
+            return Err(eyre::eyre!("Not all items were partitioned"));
+        }
 
-impl std::cmp::Ord for crate::data::Gearset {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
+        let bagues: Vec<_> = bagues.into_iter()
+            .combinations(2)
+            .collect();
 
-pub fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
-    ui_link.message("Loading items...")?;
-    let items = load_items()?;
-    let (arme, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Weapon);
-    let (tête, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Head);
-    let (torse, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Body);
-    let (mains, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Hands);
-    let (jambes, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Legs);
-    let (pieds, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Feet);
-    let (oreille, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Earrings);
-    let (collier, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Necklace);
-    let (bracelet, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Bracelet);
-    let (bagues, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::LeftRing);
-    let (nourriture, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Food);
-
-    if !items.is_empty() {
-        tracing::error!("Not all items were partitioned: {:?}", items);
-        ui_link.message("ERROR: Not all items were partitioned")?;
-        return Err(eyre::eyre!("Not all items were partitioned"));
-    }
-
-    let bagues: Vec<_> = bagues.into_iter()
-        .combinations(2)
-        .collect();
-
-
-    let product = vec![
+        let product = vec![
             arme.into_iter(),
             tête.into_iter(),
             torse.into_iter(),
@@ -154,66 +129,190 @@ pub fn calc_sets(ui_link: UiLink) -> eyre::Result<()> {
             collier.into_iter(),
             bracelet.into_iter(),
         ].into_iter()
-        .multi_cartesian_product()
-        .cartesian_product(bagues)
-        .map(|(items, rings)| items.into_iter().chain(rings.into_iter()).collect::<Vec<_>>());
+            .multi_cartesian_product()
+            .cartesian_product(bagues)
+            .map(|(items, rings)| items.into_iter().chain(rings.into_iter()).collect::<Vec<_>>());
 
-    ui_link.message("Ranking gear...")?;
+        self.ui_link.message("Ranking gear...")?;
 
-    let results = product
-        .map(|items| {
-            let mut gearset = Gearset::from_items(items);
-            gearset.base = SAGE_BASE;
-            gearset
-        })
-        .filter(|gearset| {
-            gearset.is_valid()
-        })
-        .map(std::cmp::Reverse)
-        .k_smallest(10)
-        .map(|rev| rev.0);
+        let results = product
+            .map(|items| {
+                let mut gearset = Gearset::from_items(items);
+                gearset.base = SAGE_BASE;
+                gearset
+            })
+            .filter(|gearset| {
+                gearset.is_valid()
+            })
+            .map(|gearset| E::wrap(gearset, &self.evaluator_data))
+            .map(std::cmp::Reverse)
+            .k_smallest(k)
+            .map(|rev| rev.0)
+            .map(E::unwrap);
 
-    ui_link.message("Ranking food/melds...")?;
+        self.ui_link.message("Ranking food/melds...")?;
 
-    results.into_iter()
-        .flat_map(|gearset| {
-            let (possible_melds_x, possible_melds_ix) = gearset.possible_melds();
-            let (meld_slots_x, meld_slots_ix) = gearset.meld_slots();
-            tracing::debug!("{:?}", gearset.items);
-            tracing::debug!("possible: {:?}, {:?}", possible_melds_x, possible_melds_ix);
-            tracing::debug!("slots: {:?}, {:?}", meld_slots_x, meld_slots_ix);
+        let gearsets: Vec<_> = results.into_iter()
+            .flat_map(|gearset| {
+                let (possible_melds_x, possible_melds_ix) = gearset.possible_melds();
+                let (meld_slots_x, meld_slots_ix) = gearset.meld_slots();
+                tracing::debug!("{:?}", gearset.items);
+                tracing::debug!("possible: {:?}, {:?}", possible_melds_x, possible_melds_ix);
+                tracing::debug!("slots: {:?}, {:?}", meld_slots_x, meld_slots_ix);
 
-            let tentative_meld_x: Vec<_> = possible_melds_x.into_iter()
-                .map(|materia_count| (0..=materia_count))
-                .multi_cartesian_product()
-                .filter(|meld| meld.iter().sum::<u32>() == meld_slots_x)
-                .collect();
-            let tentative_meld_ix: Vec<_> = possible_melds_ix.into_iter()
-                .map(|materia_count| (0..=materia_count))
-                .multi_cartesian_product()
-                .filter(|meld| meld.iter().sum::<u32>() == meld_slots_ix)
-                .collect();
+                let tentative_meld_x: Vec<_> = possible_melds_x.into_iter()
+                    .map(|materia_count| (0..=materia_count))
+                    .multi_cartesian_product()
+                    .filter(|meld| meld.iter().sum::<u32>() == meld_slots_x)
+                    .collect();
+                let tentative_meld_ix: Vec<_> = possible_melds_ix.into_iter()
+                    .map(|materia_count| (0..=materia_count))
+                    .multi_cartesian_product()
+                    .filter(|meld| meld.iter().sum::<u32>() == meld_slots_ix)
+                    .collect();
 
-            tracing::debug!("possible melds X: {}, IX: {}", tentative_meld_x.len(), tentative_meld_ix.len());
+                tracing::debug!("possible melds X: {}, IX: {}", tentative_meld_x.len(), tentative_meld_ix.len());
 
-            std::iter::once(gearset).cartesian_product(nourriture.iter()).cartesian_product(tentative_meld_x.into_iter()).cartesian_product(tentative_meld_ix.into_iter())
-        })
-        .map(|(((gearset, food), meld_x), meld_ix)| (gearset, food, meld_x, meld_ix))
-        .map(|(mut gearset, food, meld_x, meld_ix)| {
-            gearset.food = food.clone();
-            gearset.meld_x = meld_x.try_into().unwrap();
-            gearset.meld_ix = meld_ix.try_into().unwrap();
-            gearset
-        })
-        .map(std::cmp::Reverse)
-        .k_smallest(10)
-        .map(|rev| rev.0)
-        .for_each(|gearset| {
-            ui_link.gearset(gearset).unwrap();
-        });
+                std::iter::once(gearset).cartesian_product(nourriture.iter()).cartesian_product(tentative_meld_x.into_iter()).cartesian_product(tentative_meld_ix.into_iter())
+            })
+            .map(|(((gearset, food), meld_x), meld_ix)| (gearset, food, meld_x, meld_ix))
+            .map(|(mut gearset, food, meld_x, meld_ix)| {
+                gearset.food = food.clone();
+                gearset.meld_x = meld_x.try_into().unwrap();
+                gearset.meld_ix = meld_ix.try_into().unwrap();
+                gearset
+            })
+            .map(|gearset| E::wrap(gearset, &self.evaluator_data))
+            .map(std::cmp::Reverse)
+            .k_smallest(k)
+            .map(|rev| rev.0)
+            .map(E::unwrap)
+            .collect();
 
-    ui_link.message("Finished finding top 10 sets!")?;
 
-    Ok(())
+        Ok(gearsets)
+    }
+
+    fn dps(&self, gearset: &Gearset) -> f64 {
+        E::dps(gearset, &self.evaluator_data)
+    }
 }
 
+pub trait InfiniteDummyStat: crate::data::StatRepo {
+    fn cycle_length(&self) -> f64 {
+        self.cycle_normal_gcd() as f64 * self.adjusted_gcd() + 2.5
+    }
+
+    fn cycle_normal_gcd(&self) -> f64 {
+        ((30.0 - 2.5) / self.adjusted_gcd()).round()
+    }
+
+    fn cycle_phlegma(&self) -> f64 {
+        self.cycle_length() * 2.0 / 3.0 / 30.0
+    }
+
+    fn cycle_dosis(&self) -> f64 {
+        self.cycle_normal_gcd() - self.cycle_phlegma()
+    }
+
+    fn cycle_eukr_dosis(&self) -> f64 {
+        1.0
+    }
+
+    fn dosis_aps(&self) -> f64 {
+        self.cycle_dosis() / self.cycle_length()
+    }
+
+    fn phlegma_aps(&self) -> f64 {
+        self.cycle_phlegma() / self.cycle_length()
+    }
+
+    fn eukr_dosis_aps(&self) -> f64 {
+        self.cycle_eukr_dosis() / self.cycle_length()
+    }
+
+    fn dosis_score(&self) -> f64 {
+        let adj_wd = self.adjusted_weapon_damage();
+        let map = self.magic_attack_power();
+        let det = self.det_multiplier();
+        let damage = 330.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+    }
+
+    fn phlegma_score(&self) -> f64 {
+        let adj_wd = self.adjusted_weapon_damage();
+        let map = self.magic_attack_power();
+        let det = self.det_multiplier();
+        let damage = 510.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+    }
+
+    fn eukr_dosis_score(&self) -> f64 {
+        let adj_wd = self.adjusted_weapon_damage();
+        let map = self.magic_attack_power();
+        let det = self.det_multiplier();
+        let sps = self.sps_multiplier();
+        let ticks_lost_per_cast = (30.0 - self.cycle_length()).abs() / 3.0;
+        let expected_tick_number = 10.0 * (1.0 - ticks_lost_per_cast) + 9.0 * ticks_lost_per_cast;
+        let damage = 70.scale(adj_wd).scale(map).scale(det).scale(sps) * 130 / 100 + 1;
+        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar() * expected_tick_number
+    }
+
+    fn pps(&self) -> f64 {
+        self.dosis_aps() * 330.0
+            + self.phlegma_aps() * 510.0
+            + self.eukr_dosis_aps() * 700.0
+    }
+
+    fn dps(&self) -> f64 {
+        self.dosis_aps() * self.dosis_score()
+        + self.phlegma_aps() * self.phlegma_score()
+        + self.eukr_dosis_aps() * self.eukr_dosis_score()
+    }
+}
+
+impl<T: crate::data::StatRepo> InfiniteDummyStat for T {}
+
+#[derive(PartialEq, Eq)]
+pub struct InfiniteDummyEvaluator(Gearset);
+
+impl Evaluator for InfiniteDummyEvaluator {
+    type Data = ();
+
+    fn wrap(gearset: Gearset, _data: &Self::Data) -> Self {
+        Self(gearset)
+    }
+
+    fn dps(gearset: &Gearset, _data: &Self::Data) -> f64 {
+        InfiniteDummyStat::dps(&gearset.stats())
+    }
+
+    fn unwrap(self) -> Gearset {
+        self.0
+    }
+}
+
+impl std::cmp::PartialOrd for InfiniteDummyEvaluator {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let a = InfiniteDummyStat::dps(&self.0.stats());
+        let b = InfiniteDummyStat::dps(&other.0.stats());
+
+        a.partial_cmp(&b)
+    }
+}
+
+impl std::cmp::Ord for InfiniteDummyEvaluator {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+#[derive(PartialEq, Eq)]
+pub enum SolverType {
+    Split,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum EvaluatorType {
+    InfiniteDummy,
+}
