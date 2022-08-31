@@ -69,30 +69,30 @@ pub trait Solver {
     fn dps(&self, gearset: &Gearset) -> f64;
 }
 
-pub trait Evaluator: Ord {
-    type Data: Sized;
-    fn wrap(gearset: Gearset, data: &Self::Data) -> Self;
-    fn dps(gearset: &Gearset, data: &Self::Data) -> f64;
-    fn unwrap(self) -> Gearset;
+pub trait EvaluatorFactory {
+    type Wrapper: Ord;
+    fn wrap(&self, gearset: Gearset) -> Self::Wrapper;
+    fn dps(&self, gearset: &Gearset) -> f64;
+    fn unwrap(&self, o: Self::Wrapper) -> Gearset;
 }
 
-pub struct SplitSolver<E: Evaluator> {
+pub struct SplitSolver<T> {
     items: Vec<Item>,
     ui_link: UiLink,
-    evaluator_data: E::Data,
+    evaluator_factory: Box<dyn EvaluatorFactory<Wrapper = T> + Send+Sync>,
 }
 
-impl<E: Evaluator> SplitSolver<E> {
-    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator_data: E::Data) -> Self {
+impl<T> SplitSolver<T> {
+    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator_factory: Box<dyn EvaluatorFactory<Wrapper = T> + Send+Sync>) -> Self {
         Self {
             items,
             ui_link,
-            evaluator_data,
+            evaluator_factory,
         }
     }
 }
 
-impl<E: Evaluator> Solver for SplitSolver<E> {
+impl<T: Ord> Solver for SplitSolver<T> {
     fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>> {
         self.ui_link.message("Loading items...")?;
         let items = self.items.clone();
@@ -144,11 +144,11 @@ impl<E: Evaluator> Solver for SplitSolver<E> {
             .filter(|gearset| {
                 gearset.is_valid()
             })
-            .map(|gearset| E::wrap(gearset, &self.evaluator_data))
+            .map(|gearset| self.evaluator_factory.wrap(gearset))
             .map(std::cmp::Reverse)
             .k_smallest(k)
             .map(|rev| rev.0)
-            .map(E::unwrap);
+            .map(|eval| self.evaluator_factory.unwrap(eval));
 
         self.ui_link.message("Ranking food/melds...")?;
 
@@ -182,11 +182,11 @@ impl<E: Evaluator> Solver for SplitSolver<E> {
                 gearset.meld_ix = meld_ix.try_into().unwrap();
                 gearset
             })
-            .map(|gearset| E::wrap(gearset, &self.evaluator_data))
+            .map(|gearset| self.evaluator_factory.wrap(gearset))
             .map(std::cmp::Reverse)
             .k_smallest(k)
             .map(|rev| rev.0)
-            .map(E::unwrap)
+            .map(|eval| self.evaluator_factory.unwrap(eval))
             .collect();
 
 
@@ -194,7 +194,7 @@ impl<E: Evaluator> Solver for SplitSolver<E> {
     }
 
     fn dps(&self, gearset: &Gearset) -> f64 {
-        E::dps(gearset, &self.evaluator_data)
+        self.evaluator_factory.dps(gearset)
     }
 }
 
@@ -274,25 +274,28 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
 impl<T: crate::data::StatRepo> InfiniteDummyStat for T {}
 
 #[derive(PartialEq, Eq)]
-pub struct InfiniteDummyEvaluator(Gearset);
+pub struct InfiniteDummyGearset(Gearset);
 
-impl Evaluator for InfiniteDummyEvaluator {
-    type Data = ();
+#[derive(Default)]
+pub struct InfiniteDummyEvaluatorFactory {}
 
-    fn wrap(gearset: Gearset, _data: &Self::Data) -> Self {
-        Self(gearset)
+impl EvaluatorFactory for InfiniteDummyEvaluatorFactory {
+    type Wrapper = InfiniteDummyGearset;
+
+    fn wrap(&self, gearset: Gearset) -> Self::Wrapper {
+        InfiniteDummyGearset(gearset)
     }
 
-    fn dps(gearset: &Gearset, _data: &Self::Data) -> f64 {
+    fn dps(&self, gearset: &Gearset) -> f64 {
         InfiniteDummyStat::dps(&gearset.stats())
     }
 
-    fn unwrap(self) -> Gearset {
-        self.0
+    fn unwrap(&self, o: Self::Wrapper) -> Gearset {
+        o.0
     }
 }
 
-impl std::cmp::PartialOrd for InfiniteDummyEvaluator {
+impl std::cmp::PartialOrd for InfiniteDummyGearset {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         let a = InfiniteDummyStat::dps(&self.0.stats());
         let b = InfiniteDummyStat::dps(&other.0.stats());
@@ -301,7 +304,7 @@ impl std::cmp::PartialOrd for InfiniteDummyEvaluator {
     }
 }
 
-impl std::cmp::Ord for InfiniteDummyEvaluator {
+impl std::cmp::Ord for InfiniteDummyGearset {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
     }

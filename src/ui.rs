@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use eframe::egui;
 
 use crate::data::ITEM_SLOTS;
@@ -290,6 +292,7 @@ impl Ui {
         let (status_send, status_recv) = std::sync::mpsc::sync_channel(255);
         let items = load_items()?;
         let ui_link = UiLink::new(status_send);
+        let evaluator = crate::solver::InfiniteDummyEvaluatorFactory::default();
         Ok(Self {
             status_recv,
             ui_link: ui_link.clone(),
@@ -302,7 +305,7 @@ impl Ui {
 
             items: items.clone(),
 
-            solver: std::sync::Arc::new(crate::solver::SplitSolver::<crate::solver::InfiniteDummyEvaluator>::new(items, ui_link, ())),
+            solver: std::sync::Arc::new(crate::solver::SplitSolver::new(items, ui_link, Box::new(evaluator))),
             solver_type: crate::solver::SolverType::Split,
             evaluator_type: crate::solver::EvaluatorType::InfiniteDummy,
             k_best: 10,
@@ -321,9 +324,14 @@ impl Ui {
     }
 
     fn rebuild_solver(&mut self) {
-        self.solver = std::sync::Arc::new(match (&self.solver_type, &self.evaluator_type) {
-            (SolverType::Split, EvaluatorType::InfiniteDummy) => SplitSolver::<InfiniteDummyEvaluator>::new(self.items.clone(), self.ui_link.clone(), ()),
-        });
+        let evaluator = match self.evaluator_type {
+            EvaluatorType::InfiniteDummy => Box::new(InfiniteDummyEvaluatorFactory::default()),
+        };
+        let solver = match self.solver_type {
+            SolverType::Split => Arc::new(SplitSolver::new(self.items.clone(), self.ui_link.clone(), evaluator)),
+        };
+
+        self.solver = solver;
     }
 
     fn tabs(&mut self, ui: &mut egui::Ui) {
