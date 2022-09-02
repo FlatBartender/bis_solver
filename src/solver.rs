@@ -1,10 +1,14 @@
+use std::sync::Arc;
+
 use crate::data::*;
 
 pub mod infinite_dummy;
 pub mod split;
+pub mod timeline;
 
 pub use infinite_dummy::*;
 pub use split::*;
+pub use timeline::*;
 
 // SGE base but viera/veena
 const SAGE_BASE: Stats = Stats {
@@ -71,11 +75,33 @@ pub trait Solver {
     fn dps(&self, gearset: &Gearset) -> f64;
 }
 
-pub trait EvaluatorFactory {
-    type Wrapper: Ord;
-    fn wrap(&self, gearset: Gearset) -> Self::Wrapper;
+pub trait Evaluator {
     fn dps(&self, gearset: &Gearset) -> f64;
-    fn unwrap(&self, o: Self::Wrapper) -> Gearset;
+}
+
+pub struct EvaluatorWrapper {
+    evaluator: Arc<dyn Evaluator>,
+    gearset: Gearset,
+}
+
+impl PartialEq for EvaluatorWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.gearset == other.gearset
+    }
+}
+
+impl Eq for EvaluatorWrapper {}
+
+impl PartialOrd for EvaluatorWrapper {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.evaluator.dps(&self.gearset).partial_cmp(&other.evaluator.dps(&other.gearset))
+    }
+}
+
+impl Ord for EvaluatorWrapper {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -86,4 +112,5 @@ pub enum SolverType {
 #[derive(PartialEq, Eq)]
 pub enum EvaluatorType {
     InfiniteDummy,
+    Timeline,
 }

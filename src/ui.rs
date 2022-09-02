@@ -173,7 +173,7 @@ trait Separable {
 
 impl<'a> Separable for egui_extras::TableBody<'a> {
     fn separator(&mut self, text_size: f32) {
-        let widths: Vec<_> = self.widths().iter().cloned().collect();
+        let widths: Vec<_> = self.widths().to_vec();
         self.row(0.0, |_row| {});
         self.row(text_size/5.0, |mut row| {
             for _ in widths {
@@ -235,15 +235,21 @@ impl UiLink {
         Ok(())
     }
 
-    fn new_gearsets(&self, message: Vec<crate::data::Gearset>) -> eyre::Result<()> {
-        self.status_send.send(UiMessage::NewGearsets(Box::new(message)))?;
+    pub fn processed_one(&self) -> eyre::Result<()> {
+        self.status_send.send(UiMessage::ProcessedOne)?;
+        Ok(())
+    }
+
+    fn new_gearsets(&self, gearsets: Vec<crate::data::Gearset>) -> eyre::Result<()> {
+        self.status_send.send(UiMessage::NewGearsets(gearsets))?;
         Ok(())
     }
 }
 
 enum UiMessage {
+    ProcessedOne,
     StatusMessage(String),
-    NewGearsets(Box<Vec<crate::data::Gearset>>),
+    NewGearsets(Vec<crate::data::Gearset>),
 }
 
 fn load_items() -> eyre::Result<Vec<crate::data::Item>> {
@@ -257,7 +263,7 @@ fn load_items() -> eyre::Result<Vec<crate::data::Item>> {
     let records: Vec<_> = csv_reader.into_records()
         .collect::<Result<_, _>>()?;
     records.into_iter()
-        .map(|record| crate::data::Item::try_from(record))
+        .map(crate::data::Item::try_from)
         .collect::<Result<Vec<_>, _>>()
 }
 
@@ -272,6 +278,7 @@ pub struct Ui {
     ui_link: UiLink,
 
     status: String,
+    processed: usize,
     gearsets: Vec<crate::data::Gearset>,
 
     selected_gearset_a: Option<usize>,
@@ -292,12 +299,13 @@ impl Ui {
         let (status_send, status_recv) = std::sync::mpsc::sync_channel(255);
         let items = load_items()?;
         let ui_link = UiLink::new(status_send);
-        let evaluator = crate::solver::InfiniteDummyEvaluatorFactory::default();
+        let evaluator = crate::solver::InfiniteDummyEvaluator::default();
         Ok(Self {
             status_recv,
             ui_link: ui_link.clone(),
 
             status: "Startup".to_string(),
+            processed: 0,
             gearsets: Vec::new(),
 
             selected_gearset_a: None,
@@ -305,7 +313,7 @@ impl Ui {
 
             items: items.clone(),
 
-            solver: std::sync::Arc::new(crate::solver::SplitSolver::new(items, ui_link, Box::new(evaluator))),
+            solver: std::sync::Arc::new(crate::solver::SplitSolver::new(items, ui_link, Arc::new(evaluator))),
             solver_type: crate::solver::SolverType::Split,
             evaluator_type: crate::solver::EvaluatorType::InfiniteDummy,
             k_best: 10,
@@ -318,14 +326,28 @@ impl Ui {
         use UiMessage::*;
 
         match message {
-            StatusMessage(message) => self.status = message,
-            NewGearsets(message) => self.gearsets = *message,
+            StatusMessage(message) => {
+                self.status = message;
+                self.processed = 0;
+            },
+            ProcessedOne => self.processed += 1,
+            NewGearsets(gearsets) => self.gearsets = gearsets,
         }
     }
 
     fn rebuild_solver(&mut self) {
         let evaluator = match self.evaluator_type {
-            EvaluatorType::InfiniteDummy => Box::new(InfiniteDummyEvaluatorFactory::default()),
+            EvaluatorType::InfiniteDummy => Arc::new(InfiniteDummyEvaluator::default()) as _,
+            EvaluatorType::Timeline => {
+                // TODO
+                // Add UI config for the timeline solver
+                let mut timeline = Timeline::new(vec![Timespan::new(255.0, 267.0)], 494.0);
+                timeline.with_brd()
+                    .with_rdm()
+                    .with_rpr()
+                    .with_potions();
+                Arc::new(timeline) as _
+            }
         };
         let solver = match self.solver_type {
             SolverType::Split => Arc::new(SplitSolver::new(self.items.clone(), self.ui_link.clone(), evaluator)),
@@ -352,13 +374,16 @@ impl Ui {
                 if ui.selectable_value(&mut self.evaluator_type, EvaluatorType::InfiniteDummy, "Infinite Dummy").clicked() {
                     self.rebuild_solver();
                 }
+                if ui.selectable_value(&mut self.evaluator_type, EvaluatorType::Timeline, "Timeline").clicked() {
+                    self.rebuild_solver();
+                }
             });
             ui.add(egui::Slider::new(&mut self.k_best, 1..=1000).text("K Best sets"));
             if ui.button("Run solver").clicked() {
                 std::thread::spawn({
                     let solver = self.solver.clone();
                     let ui_link = self.ui_link.clone();
-                    let k_best = self.k_best.clone();
+                    let k_best = self.k_best;
                     move || {
                         ui_link.new_gearsets(solver.k_best_sets(k_best).unwrap()).unwrap();
                         ui_link.message(format!("Finished finding top {} sets!", k_best)).unwrap();
@@ -385,6 +410,7 @@ impl Ui {
 
     fn status_bar(&mut self, ui: &mut egui::Ui) {
         ui.label(&self.status);
+        ui.label(self.processed.to_string());
     }
 
     fn gearset_selector(&mut self, ui: &mut egui::Ui) {
@@ -421,7 +447,7 @@ impl Ui {
                         ui.radio_value(&mut self.selected_gearset_b, Some(index), "");
                     });
                     row.col(|ui| {
-                        ui.label(format!("{:.2}", self.solver.dps(&gearset)));
+                        ui.label(format!("{:.2}", self.solver.dps(gearset)));
                     });
                 });
             }

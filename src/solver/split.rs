@@ -1,26 +1,27 @@
 use crate::ui::UiLink;
 use itertools::Itertools;
+use std::sync::Arc;
 
 use crate::data::*;
-use crate::solver::{EvaluatorFactory, Solver, SAGE_BASE};
+use crate::solver::{Evaluator, EvaluatorWrapper, Solver, SAGE_BASE};
 
-pub struct SplitSolver<T> {
+pub struct SplitSolver {
     items: Vec<Item>,
     ui_link: UiLink,
-    evaluator_factory: Box<dyn EvaluatorFactory<Wrapper = T> + Send+Sync>,
+    evaluator: Arc<dyn Evaluator + Send+Sync>,
 }
 
-impl<T> SplitSolver<T> {
-    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator_factory: Box<dyn EvaluatorFactory<Wrapper = T> + Send+Sync>) -> Self {
+impl SplitSolver {
+    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator_factory: Arc<dyn Evaluator + Send+Sync>) -> Self {
         Self {
             items,
             ui_link,
-            evaluator_factory,
+            evaluator: evaluator_factory,
         }
     }
 }
 
-impl<T: Ord> Solver for SplitSolver<T> {
+impl Solver for SplitSolver {
     fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>> {
         self.ui_link.message("Loading items...")?;
         let items = self.items.clone();
@@ -72,11 +73,11 @@ impl<T: Ord> Solver for SplitSolver<T> {
             .filter(|gearset| {
                 gearset.is_valid()
             })
-            .map(|gearset| self.evaluator_factory.wrap(gearset))
+            .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
             .k_smallest(k)
             .map(|rev| rev.0)
-            .map(|eval| self.evaluator_factory.unwrap(eval));
+            .map(|EvaluatorWrapper { gearset, .. }| gearset);
 
         self.ui_link.message("Ranking food/melds...")?;
 
@@ -110,11 +111,11 @@ impl<T: Ord> Solver for SplitSolver<T> {
                 gearset.meld_ix = meld_ix.try_into().unwrap();
                 gearset
             })
-            .map(|gearset| self.evaluator_factory.wrap(gearset))
+            .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
             .k_smallest(k)
             .map(|rev| rev.0)
-            .map(|eval| self.evaluator_factory.unwrap(eval))
+            .map(|EvaluatorWrapper { gearset, .. }| gearset)
             .collect();
 
 
@@ -122,6 +123,6 @@ impl<T: Ord> Solver for SplitSolver<T> {
     }
 
     fn dps(&self, gearset: &Gearset) -> f64 {
-        self.evaluator_factory.dps(gearset)
+        self.evaluator.dps(gearset)
     }
 }

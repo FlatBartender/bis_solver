@@ -26,6 +26,10 @@ pub trait StatRepo {
         Unit(2500 * (1000 - 130 * (self.spell_speed() - 400) / 1900) / 10000)
     }
 
+    fn gcd15(&self) -> Unit<1, 100> {
+        Unit(1500 * (1000 - 130 * (self.spell_speed() - 400) / 1900) / 10000)
+    }
+
     fn adjusted_gcd(&self) -> f64 {
         self.gcd().scalar() / self.gcd_uptime()
     }
@@ -94,7 +98,7 @@ pub struct Stats {
 }
 
 impl Stats {
-    fn add(&mut self, other: &Self) {
+    pub fn add(&mut self, other: &Self) {
         self.weapon_damage += other.weapon_damage;
         self.mind += other.mind;
         self.vitality += other.vitality;

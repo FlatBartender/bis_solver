@@ -1,4 +1,4 @@
-use crate::solver::EvaluatorFactory;
+use crate::solver::Evaluator;
 use crate::utils::Scalable;
 use crate::data::Gearset;
 
@@ -81,21 +81,11 @@ impl<T: crate::data::StatRepo> InfiniteDummyStat for T {}
 pub struct InfiniteDummyGearset(Gearset);
 
 #[derive(Default)]
-pub struct InfiniteDummyEvaluatorFactory {}
+pub struct InfiniteDummyEvaluator {}
 
-impl EvaluatorFactory for InfiniteDummyEvaluatorFactory {
-    type Wrapper = InfiniteDummyGearset;
-
-    fn wrap(&self, gearset: Gearset) -> Self::Wrapper {
-        InfiniteDummyGearset(gearset)
-    }
-
+impl Evaluator for InfiniteDummyEvaluator {
     fn dps(&self, gearset: &Gearset) -> f64 {
         InfiniteDummyStat::dps(&gearset.stats())
-    }
-
-    fn unwrap(&self, o: Self::Wrapper) -> Gearset {
-        o.0
     }
 }
 
