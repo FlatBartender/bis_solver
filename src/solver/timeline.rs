@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::sync::{Mutex, Arc};
+use std::sync::Mutex;
 use std::collections::HashMap;
 
 use crate::data::*;
@@ -126,6 +126,14 @@ impl TimelineIterator {
         ret
     }
 
+    fn next_span(&mut self, span: &Timespan) -> Option<f64> {
+        if !self.downtime.spans(span.end + self.current).is_empty() {
+            // End is in a downtime, reschedule
+            self.current += span.end;
+        }
+        self.next()
+    }
+
     fn from_timeline(timeline: &Timeline, start: f64, step: f64) -> Self {
         Self {
             downtime: timeline.downtime.clone(),
@@ -146,9 +154,6 @@ impl Timeline {
             timeline_cache: Mutex::new(HashMap::new()),
         }
     }
-
-    // TODO make sure raid buffs are used fully, eg delay them if some of their duration happens
-    // during downtime
 
     // BRD:
     //  - Songs: Might change duration based on rotation
@@ -190,12 +195,13 @@ impl Timeline {
             self.buffs.push(radiant_finale.clone().offset(offset), Buff::Damage(0.02));
         }
         // Other radiant finale
-        for offset in radiant_iter {
+        while let Some(offset) = radiant_iter.next_span(&radiant_finale) {
             self.buffs.push(radiant_finale.clone().offset(offset), Buff::Damage(0.06));
         }
 
         let battle_voice = Timespan::new(0.0, 15.0);
-        for offset in TimelineIterator::from_timeline(self, 6.5, 120.0) {
+        let mut battle_voice_iter = TimelineIterator::from_timeline(self, 6.5, 120.0);
+        while let Some(offset) = battle_voice_iter.next_span(&battle_voice) {
             self.buffs.push(battle_voice.clone().offset(offset), Buff::DirectHit(0.2));
         }
 
@@ -208,7 +214,8 @@ impl Timeline {
     //      - drifted to finish GCD -> ~121s
     pub fn with_dnc(&mut self) -> &mut Self {
         let technical_finish = Timespan::new(0.0, 20.0);
-        for offset in TimelineIterator::from_timeline(self, 6.5, 121.0) {
+        let mut technical_finish_iter = TimelineIterator::from_timeline(self, 6.5, 121.0);
+        while let Some(offset) = technical_finish_iter.next_span(&technical_finish) {
             self.buffs.push(technical_finish.clone().offset(offset), Buff::Damage(0.05));
         }
         self
@@ -220,7 +227,8 @@ impl Timeline {
     //      - window 120s
     pub fn with_smn(&mut self) -> &mut Self {
         let searing_light = Timespan::new(0.0, 30.0);
-        for offset in TimelineIterator::from_timeline(self, 2.5, 120.0) {
+        let mut searing_light_iter = TimelineIterator::from_timeline(self, 2.5, 120.0);
+        while let Some(offset) = searing_light_iter.next_span(&searing_light) {
             self.buffs.push(searing_light.clone().offset(offset), Buff::Damage(0.03));
         }
         self
@@ -232,7 +240,8 @@ impl Timeline {
     //      - window 120s
     pub fn with_rdm(&mut self) -> &mut Self {
         let embolden = Timespan::new(0.0, 20.0);
-        for offset in TimelineIterator::from_timeline(self, 5.5, 120.0) {
+        let mut embolden_iter = TimelineIterator::from_timeline(self, 5.5, 120.0);
+        while let Some(offset) = embolden_iter.next_span(&embolden) {
             self.buffs.push(embolden.clone().offset(offset), Buff::Damage(0.05));
         }
         self
@@ -247,7 +256,8 @@ impl Timeline {
     // This function assumes 4th GCD 1st weave for better alignment
     pub fn with_mnk(&mut self) -> &mut Self {
         let brotherhood = Timespan::new(0.0, 15.0);
-        for offset in TimelineIterator::from_timeline(self, 6.5, 120.0) {
+        let mut brotherhood_iter = TimelineIterator::from_timeline(self, 6.5, 120.0);
+        while let Some(offset) = brotherhood_iter.next_span(&brotherhood) {
             self.buffs.push(brotherhood.clone().offset(offset), Buff::Damage(0.05));
         }
         self
@@ -259,7 +269,8 @@ impl Timeline {
     //      - window 120s
     pub fn with_drg(&mut self) -> &mut Self {
         let battle_litany = Timespan::new(0.0, 15.0);
-        for offset in TimelineIterator::from_timeline(self, 5.5, 120.0) {
+        let mut battle_litany_iter = TimelineIterator::from_timeline(self, 5.5, 120.0);
+        while let Some(offset) = battle_litany_iter.next_span(&battle_litany) {
             self.buffs.push(battle_litany.clone().offset(offset), Buff::Critical(0.1));
         }
         self
@@ -271,7 +282,8 @@ impl Timeline {
     //      - window 120s
     pub fn with_rpr(&mut self) -> &mut Self {
         let arcane_circle = Timespan::new(0.0, 20.0);
-        for offset in TimelineIterator::from_timeline(self, 1.5, 120.0) {
+        let mut arcane_circle_iter = TimelineIterator::from_timeline(self, 1.5, 120.0);
+        while let Some(offset) = arcane_circle_iter.next_span(&arcane_circle) {
             self.buffs.push(arcane_circle.clone().offset(offset), Buff::Damage(0.03));
         }
         self
@@ -283,7 +295,8 @@ impl Timeline {
     //      - window 120s
     pub fn with_nin(&mut self) -> &mut Self {
         let mug = Timespan::new(0.0, 20.0);
-        for offset in TimelineIterator::from_timeline(self, 3.0, 120.0) {
+        let mut mug_iter = TimelineIterator::from_timeline(self, 3.0, 120.0);
+        while let Some(offset) = mug_iter.next_span(&mug) {
             self.buffs.push(mug.clone().offset(offset), Buff::Damage(0.05));
         }
         self
@@ -309,7 +322,8 @@ impl Timeline {
     //      - window 120s (weaved but lightspeed)
     pub fn with_ast(&mut self) -> &mut Self {
         let divination = Timespan::new(0.0, 15.0);
-        for offset in TimelineIterator::from_timeline(self, 6.5, 120.0) {
+        let mut divination_iter = TimelineIterator::from_timeline(self, 6.5, 120.0);
+        while let Some(offset) = divination_iter.next_span(&divination) {
             self.buffs.push(divination.clone().offset(offset), Buff::Damage(0.06));
         }
         self
