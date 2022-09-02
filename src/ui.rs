@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use eframe::egui;
 
@@ -6,7 +7,7 @@ use crate::data::ITEM_SLOTS;
 use crate::solver::*;
 
 impl crate::data::Gearset {
-    pub fn table_ui(&mut self, ui: &mut egui::Ui) {
+    pub fn table_ui(&self, ui: &mut egui::Ui) {
         use egui_extras::{Size, TableBuilder};
         let text_size = egui::TextStyle::Body.resolve(ui.style()).size;
 
@@ -187,16 +188,6 @@ impl<'a> Separable for egui_extras::TableBody<'a> {
 
 impl eframe::App for Ui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        loop {
-            match self.status_recv.try_recv() {
-                Ok(message) => {
-                    self.handle_message(message);
-                },
-                Err(std::sync::mpsc::TryRecvError::Empty) => break,
-                _ => todo!(),
-            }
-        }
-
         egui::TopBottomPanel::top("tabs_panel").show(ctx, |ui| {
             self.tabs(ui);
         });
@@ -215,41 +206,48 @@ impl eframe::App for Ui {
                 Tab::Comparator => self.comparator_tab(ui),
             }
         });
+        ctx.request_repaint_after(std::time::Duration::from_millis(100));
     }
 }
 
 #[derive(Clone)]
 pub struct UiLink {
-    status_send: std::sync::mpsc::SyncSender<UiMessage>,
+    status_text: Arc<Mutex<String>>,
+    count: Arc<AtomicUsize>,
+    gearsets: Arc<Mutex<Vec<crate::data::Gearset>>>,
+    context: egui::Context,
 }
 
 impl UiLink {
-    fn new(status_send: std::sync::mpsc::SyncSender<UiMessage>) -> Self {
+    pub fn new(context: egui::Context) -> Self {
         Self {
-            status_send,
+            status_text: Arc::default(),
+            count: Arc::default(),
+            gearsets: Arc::default(),
+            context,
         }
     }
 
     pub fn message(&self, message: impl ToString) -> eyre::Result<()> {
-        self.status_send.send(UiMessage::StatusMessage(message.to_string()))?;
+        let message = message.to_string();
+        *self.status_text.lock().unwrap() = message;
         Ok(())
     }
 
-    pub fn processed_one(&self) -> eyre::Result<()> {
-        self.status_send.send(UiMessage::ProcessedOne)?;
+    pub fn increment(&self) -> eyre::Result<()> {
+        self.count.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn set_count(&self, count: usize) -> eyre::Result<()> {
+        self.count.store(count, Ordering::Relaxed);
         Ok(())
     }
 
     fn new_gearsets(&self, gearsets: Vec<crate::data::Gearset>) -> eyre::Result<()> {
-        self.status_send.send(UiMessage::NewGearsets(gearsets))?;
+        *self.gearsets.lock().unwrap() = gearsets;
         Ok(())
     }
-}
-
-enum UiMessage {
-    ProcessedOne,
-    StatusMessage(String),
-    NewGearsets(Vec<crate::data::Gearset>),
 }
 
 fn load_items() -> eyre::Result<Vec<crate::data::Item>> {
@@ -274,12 +272,9 @@ enum Tab {
 }
 
 pub struct Ui {
-    status_recv: std::sync::mpsc::Receiver<UiMessage>,
     ui_link: UiLink,
 
-    status: String,
-    processed: usize,
-    gearsets: Vec<crate::data::Gearset>,
+    gearsets: Arc<Mutex<Vec<crate::data::Gearset>>>,
 
     selected_gearset_a: Option<usize>,
     selected_gearset_b: Option<usize>,
@@ -295,18 +290,14 @@ pub struct Ui {
 }
 
 impl Ui {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> eyre::Result<Self> {
-        let (status_send, status_recv) = std::sync::mpsc::sync_channel(255);
+    pub fn new(cc: &eframe::CreationContext<'_>) -> eyre::Result<Self> {
         let items = load_items()?;
-        let ui_link = UiLink::new(status_send);
+        let ui_link = UiLink::new(cc.egui_ctx.clone());
         let evaluator = crate::solver::InfiniteDummyEvaluator::default();
         Ok(Self {
-            status_recv,
             ui_link: ui_link.clone(),
 
-            status: "Startup".to_string(),
-            processed: 0,
-            gearsets: Vec::new(),
+            gearsets: ui_link.gearsets.clone(),
 
             selected_gearset_a: None,
             selected_gearset_b: None,
@@ -320,19 +311,6 @@ impl Ui {
 
             tab: Tab::Solver,
         })
-    }
-
-    fn handle_message(&mut self, message: UiMessage) {
-        use UiMessage::*;
-
-        match message {
-            StatusMessage(message) => {
-                self.status = message;
-                self.processed = 0;
-            },
-            ProcessedOne => self.processed += 1,
-            NewGearsets(gearsets) => self.gearsets = gearsets,
-        }
     }
 
     fn rebuild_solver(&mut self) {
@@ -391,26 +369,32 @@ impl Ui {
                 });
             }
         });
-        
     }
 
     fn comparator_tab(&mut self, ui: &mut egui::Ui) {
         if let Some(index) = self.selected_gearset_a {
-            ui.push_id("gearset_a", |ui| {
-                self.gearsets[index].table_ui(ui);
-            });
+            if let Some(gearset) = self.gearsets.lock().unwrap().get(index) {
+                ui.push_id("gearset_a", |ui| {
+                    gearset.table_ui(ui);
+                });
+            }
         }
         ui.separator();
         if let Some(index) = self.selected_gearset_b {
-            ui.push_id("gearset_b", |ui| {
-                self.gearsets[index].table_ui(ui);
-            });
+            if let Some(gearset) = self.gearsets.lock().unwrap().get(index) {
+                ui.push_id("gearset_b", |ui| {
+                    gearset.table_ui(ui);
+                });
+            }
         }
     }
 
     fn status_bar(&mut self, ui: &mut egui::Ui) {
-        ui.label(&self.status);
-        ui.label(self.processed.to_string());
+        ui.horizontal(|ui| {
+            ui.label(&self.ui_link.status_text.lock().unwrap().clone());
+            ui.separator();
+            ui.label(format!("{} items processed", self.ui_link.count.load(Ordering::Relaxed)));
+        });
     }
 
     fn gearset_selector(&mut self, ui: &mut egui::Ui) {
@@ -438,7 +422,7 @@ impl Ui {
             });
         })
         .body(|mut body| {
-            for (index, gearset) in self.gearsets.iter().enumerate() {
+            for (index, gearset) in self.gearsets.lock().unwrap().iter().enumerate() {
                 body.row(text_size_body, |mut row| {
                     row.col(|ui| {
                         ui.radio_value(&mut self.selected_gearset_a, Some(index), "");

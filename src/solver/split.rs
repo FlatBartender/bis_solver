@@ -23,6 +23,7 @@ impl SplitSolver {
 
 impl Solver for SplitSolver {
     fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>> {
+        self.ui_link.set_count(0)?;
         self.ui_link.message("Loading items...")?;
         let items = self.items.clone();
         let (arme, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Weapon);
@@ -73,12 +74,14 @@ impl Solver for SplitSolver {
             .filter(|gearset| {
                 gearset.is_valid()
             })
+            .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
             .k_smallest(k)
             .map(|rev| rev.0)
             .map(|EvaluatorWrapper { gearset, .. }| gearset);
 
+        self.ui_link.set_count(0)?;
         self.ui_link.message("Ranking food/melds...")?;
 
         let gearsets: Vec<_> = results.into_iter()
@@ -111,6 +114,7 @@ impl Solver for SplitSolver {
                 gearset.meld_ix = meld_ix.try_into().unwrap();
                 gearset
             })
+            .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
             .k_smallest(k)
