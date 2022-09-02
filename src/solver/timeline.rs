@@ -147,6 +147,7 @@ impl Timeline {
 
     // TODO make sure raid buffs are used fully, eg delay them if some of their duration happens
     // during downtime
+    // TODO add 5% MND bonus from full party
 
     // BRD:
     //  - Songs: Might change duration based on rotation
