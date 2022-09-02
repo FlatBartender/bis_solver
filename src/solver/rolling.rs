@@ -1,0 +1,159 @@
+use std::sync::Arc;
+use crate::data::*;
+use crate::ui::UiLink;
+use crate::solver::{Evaluator, EvaluatorWrapper, Solver, SAGE_BASE};
+
+use itertools::Itertools;
+
+pub struct RollingSolver {
+    items: Vec<Item>,
+    ui_link: UiLink,
+    evaluator: Arc<dyn Evaluator + Send+Sync>,
+    rolling_limit: usize,
+}
+
+impl RollingSolver {
+    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator: Arc<dyn Evaluator + Send+Sync>, rolling_limit: usize) -> Self {
+        Self {
+            items,
+            ui_link,
+            evaluator,
+            rolling_limit,
+        }
+    }
+}
+impl Solver for RollingSolver {
+    fn k_best_sets(&self, _: usize) -> eyre::Result<Vec<Gearset>> {
+        self.ui_link.set_count(0)?;
+        self.ui_link.message("Loading items...")?;
+        let items = self.items.clone();
+        let (weapon, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Weapon);
+        let (head, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Head);
+        let (torso, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Body);
+        let (hands, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Hands);
+        let (legs, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Legs);
+        let (feet, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Feet);
+        let (ear, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Earrings);
+        let (neck, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Necklace);
+        let (bracelet, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Bracelet);
+        let (rings, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::LeftRing);
+        let (food, items): (Vec<_>, Vec<_>) = items.into_iter().partition(|item| item.slot == ItemSlot::Food);
+
+        if !items.is_empty() {
+            tracing::error!("Not all items were partitioned: {:?}", items);
+            self.ui_link.message("ERROR: Not all items were partitioned")?;
+            return Err(eyre::eyre!("Not all items were partitioned"));
+        }
+
+        let (left_ring, right_ring): (Vec<_>, Vec<_>) = rings.into_iter()
+            .tuple_combinations()
+            .map(|(mut left, mut right)| {
+                left.slot = ItemSlot::LeftRing;
+                right.slot = ItemSlot::RightRing;
+                (left, right)
+            })
+            .unzip();
+
+        let items = vec![
+            weapon.into_iter(),
+            head.into_iter(),
+            torso.into_iter(),
+            hands.into_iter(),
+            legs.into_iter(),
+            feet.into_iter(),
+            ear.into_iter(),
+            neck.into_iter(),
+            bracelet.into_iter(),
+            left_ring.into_iter(),
+            right_ring.into_iter(),
+        ];
+
+        self.ui_link.message("Ranking gear...")?;
+
+        let mut base_gearset = Gearset::default();
+        base_gearset.base = SAGE_BASE;
+        let mut gearsets = vec![base_gearset];
+        for item_list in items {
+            gearsets = item_list
+                .cartesian_product(gearsets.into_iter())
+                .map(|(item, mut gearset)| {
+                    gearset.items[item.slot as usize] = item.clone();
+                    gearset
+                })
+                .filter(|gearset| {
+                    gearset.is_valid()
+                })
+                .inspect(|_| self.ui_link.increment().unwrap())
+                .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
+                .map(std::cmp::Reverse)
+                .k_smallest(self.rolling_limit)
+                .dedup()
+                .map(|rev| rev.0)
+                .map(|EvaluatorWrapper { gearset, .. }| gearset)
+                .collect();
+        }
+
+        self.ui_link.set_count(0)?;
+        self.ui_link.message("Ranking food/melds...")?;
+
+        let gearsets: Vec<_> = gearsets.into_iter()
+            .flat_map(|gearset| {
+                let (possible_melds_x, _) = gearset.possible_melds();
+                let (meld_slots_x, _) = gearset.meld_slots();
+                let tentative_meld_x: Vec<_> = possible_melds_x.into_iter()
+                    .map(|materia_count| (0..=materia_count))
+                    .multi_cartesian_product()
+                    .filter(|meld| meld.iter().sum::<u32>() == meld_slots_x)
+                    .collect();
+                std::iter::once(gearset).cartesian_product(tentative_meld_x.into_iter())
+            })
+            .map(|(mut gearset, meld_x)| {
+                gearset.meld_x = meld_x.try_into().unwrap();
+                gearset
+            })
+            .inspect(|_| self.ui_link.increment().unwrap())
+            .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
+            .map(std::cmp::Reverse)
+            .k_smallest(self.rolling_limit)
+            .map(|rev| rev.0)
+            .map(|EvaluatorWrapper { gearset, .. }| gearset)
+            .flat_map(|gearset| {
+                let (_, possible_melds_ix) = gearset.possible_melds();
+                let (_, meld_slots_ix) = gearset.meld_slots();
+                let tentative_meld_ix: Vec<_> = possible_melds_ix.into_iter()
+                    .map(|materia_count| (0..=materia_count))
+                    .multi_cartesian_product()
+                    .filter(|meld| meld.iter().sum::<u32>() == meld_slots_ix)
+                    .collect();
+                std::iter::once(gearset).cartesian_product(tentative_meld_ix.into_iter())
+            })
+            .map(|(mut gearset, meld_ix)| {
+                gearset.meld_ix = meld_ix.try_into().unwrap();
+                gearset
+            })
+            .inspect(|_| self.ui_link.increment().unwrap())
+            .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
+            .map(std::cmp::Reverse)
+            .k_smallest(self.rolling_limit)
+            .map(|rev| rev.0)
+            .map(|EvaluatorWrapper { gearset, .. }| gearset)
+            .cartesian_product(food.into_iter())
+            .map(|(mut gearset, food)| {
+                gearset.food = food;
+                gearset
+            })
+            .inspect(|_| self.ui_link.increment().unwrap())
+            .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
+            .map(std::cmp::Reverse)
+            .k_smallest(self.rolling_limit)
+            .map(|rev| rev.0)
+            .map(|EvaluatorWrapper { gearset, .. }| gearset)
+            .collect();
+
+        Ok(gearsets)
+    }
+
+    fn dps(&self, gearset: &Gearset) -> f64 {
+        self.evaluator.dps(gearset)
+    }
+}

@@ -202,7 +202,7 @@ impl eframe::App for Ui {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.tab {
-                Tab::Solver => self.solver_tab(ui),
+                Tab::Configuration => self.solver_tab(ui),
                 Tab::Comparator => self.comparator_tab(ui),
             }
         });
@@ -267,7 +267,7 @@ fn load_items() -> eyre::Result<Vec<crate::data::Item>> {
 
 #[derive(PartialEq, Eq)]
 enum Tab {
-    Solver,
+    Configuration,
     Comparator,
 }
 
@@ -309,7 +309,7 @@ impl Ui {
             evaluator_type: crate::solver::EvaluatorType::InfiniteDummy,
             k_best: 10,
 
-            tab: Tab::Solver,
+            tab: Tab::Configuration,
         })
     }
 
@@ -327,35 +327,39 @@ impl Ui {
                 Arc::new(timeline) as _
             }
         };
-        let solver = match self.solver_type {
-            SolverType::Split => Arc::new(SplitSolver::new(self.items.clone(), self.ui_link.clone(), evaluator)),
+        let solver: Arc<dyn Solver + Send+Sync> = match self.solver_type {
+            SolverType::Split => Arc::new(SplitSolver::new(self.items.clone(), self.ui_link.clone(), evaluator)) as _,
+            SolverType::Rolling => Arc::new(RollingSolver::new(self.items.clone(), self.ui_link.clone(), evaluator, 128)) as _,
         };
 
+        self.gearsets.lock().unwrap().sort_by(|a, b| {
+            solver.dps(b).partial_cmp(&solver.dps(a)).unwrap()
+        });
         self.solver = solver;
     }
 
     fn tabs(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.tab, Tab::Solver, "Solver");
+            ui.selectable_value(&mut self.tab, Tab::Configuration, "Configuration");
             ui.selectable_value(&mut self.tab, Tab::Comparator, "Comparator");
         });
     }
 
     fn solver_tab(&mut self, ui: &mut egui::Ui) {
         ui.vertical(|ui| {
-            ui.horizontal(|ui| {
+            let solver_select = ui.horizontal(|ui| {
                 ui.label("Solver");
-                ui.selectable_value(&mut self.solver_type, SolverType::Split, "Split");
-            });
-            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.solver_type, SolverType::Split, "Split")
+                | ui.selectable_value(&mut self.solver_type, SolverType::Rolling, "Rolling")
+            }).inner
+            | ui.horizontal(|ui| {
                 ui.label("Evaluator");
-                if ui.selectable_value(&mut self.evaluator_type, EvaluatorType::InfiniteDummy, "Infinite Dummy").clicked() {
-                    self.rebuild_solver();
-                }
-                if ui.selectable_value(&mut self.evaluator_type, EvaluatorType::Timeline, "Timeline").clicked() {
-                    self.rebuild_solver();
-                }
-            });
+                ui.selectable_value(&mut self.evaluator_type, EvaluatorType::InfiniteDummy, "Infinite Dummy")
+                | ui.selectable_value(&mut self.evaluator_type, EvaluatorType::Timeline, "Timeline")
+            }).inner;
+            if solver_select.clicked() {
+                self.rebuild_solver();
+            }
             ui.add(egui::Slider::new(&mut self.k_best, 1..=1000).text("K Best sets"));
             if ui.button("Run solver").clicked() {
                 std::thread::spawn({

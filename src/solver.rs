@@ -3,12 +3,14 @@ use std::sync::Arc;
 use crate::data::*;
 
 pub mod infinite_dummy;
-pub mod split;
 pub mod timeline;
+pub mod split;
+pub mod rolling;
 
 pub use infinite_dummy::*;
-pub use split::*;
 pub use timeline::*;
+pub use split::*;
+pub use rolling::*;
 
 // SGE base but viera/veena
 const SAGE_BASE: Stats = Stats {
@@ -107,6 +109,7 @@ impl Ord for EvaluatorWrapper {
 #[derive(PartialEq, Eq)]
 pub enum SolverType {
     Split,
+    Rolling,
 }
 
 #[derive(PartialEq, Eq)]

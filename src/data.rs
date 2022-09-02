@@ -275,7 +275,7 @@ impl Gearset {
 
     pub fn is_valid(&self) -> bool {
         use ItemSlot::*;
-        !(self.items[LeftRing as usize].name == self.items[RightRing as usize].name && self.items[LeftRing as usize].overmeldable == 0)
+        !(self.items[LeftRing as usize].name == self.items[RightRing as usize].name && self.items[LeftRing as usize].overmeldable == 0) || self.items[LeftRing as usize].name.is_empty()
     }
 }
 
