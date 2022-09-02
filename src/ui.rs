@@ -341,7 +341,7 @@ impl Ui {
             EvaluatorType::Timeline => {
                 // TODO
                 // Add UI config for the timeline solver
-                let mut timeline = Timeline::new(vec![Timespan::new(255.0, 267.0)], 494.0);
+                let mut timeline = Timeline::new(vec![Timespan::new(255.0, 267.0)], 494.0, 0.05);
                 timeline.with_brd()
                     .with_rdm()
                     .with_rpr()

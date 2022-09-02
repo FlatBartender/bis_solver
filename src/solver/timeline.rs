@@ -86,6 +86,7 @@ impl From<Vec<Timespan>> for TimespanSearch<()> {
 pub struct Timeline {
     downtime: TimespanSearch<()>,
     buffs: TimespanSearch<Buff>,
+    comp_mind: f64,
     end: f64,
     timeline_cache: Mutex<HashMap<usize, Vec<(f64, SGEAction, SimplifiedBuff)>>>
 }
@@ -136,10 +137,11 @@ impl TimelineIterator {
 }
 
 impl Timeline {
-    pub fn new(downtime: Vec<Timespan>, end: f64) -> Self {
+    pub fn new(downtime: Vec<Timespan>, end: f64, comp_mind: f64) -> Self {
         Self {
             downtime: downtime.into(),
             end,
+            comp_mind,
             buffs: TimespanSearch::new(),
             timeline_cache: Mutex::new(HashMap::new()),
         }
@@ -147,7 +149,6 @@ impl Timeline {
 
     // TODO make sure raid buffs are used fully, eg delay them if some of their duration happens
     // during downtime
-    // TODO add 5% MND bonus from full party
 
     // BRD:
     //  - Songs: Might change duration based on rotation
@@ -557,8 +558,9 @@ impl<T: StatRepo> StatExt for T {
 // WORKS ONLY IF THE BUFFS HAVE BEEN SIMPLIFIED
 // which they should be
 pub fn timeline_dps(tl: &Timeline, gearset: &Gearset) -> f64 {
-    let stats = gearset.stats();
-    let gcd = (stats.gcd().scalar() * 100.0) as usize;
+    let mut stats = gearset.stats();
+    // Take into account the composition MND buff
+    stats.mind += (stats.mind as f64 * tl.comp_mind)  as u32;
     let timeline = tl.sge_timeline(stats.spell_speed);
 
     let mut edosis_ticks = Vec::new();
