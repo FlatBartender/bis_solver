@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 use std::collections::HashMap;
 
+use itertools::Itertools;
+
 use crate::data::*;
 
 #[derive(Clone)]
@@ -42,7 +44,7 @@ impl<T: Clone> TimespanSearch<T> {
             .collect();
 
         let end_candidates: HashSet<_> = self.ends.iter()
-            .filter(|index| self.data[**index].0.end >= instant)
+            .filter(|index| self.data[**index].0.end > instant)
             .collect();
 
         begin_candidates.intersection(&end_candidates)
@@ -88,7 +90,7 @@ pub struct Timeline {
     buffs: TimespanSearch<Buff>,
     comp_mind: f64,
     end: f64,
-    timeline_cache: Mutex<HashMap<usize, Vec<(f64, SGEAction, SimplifiedBuff)>>>
+    timeline_cache: Mutex<HashMap<usize, Vec<(f64, SGEAction, SimplifiedBuff)>>>,
 }
 
 // TODO
@@ -331,13 +333,53 @@ impl Timeline {
 
     // Potions:
     //  - Assume bonus is maxed (grade 7 tincture is 223 MND)
-    //  - First in opener at -3.0, rest at 6:05, 12:05 etc
+    //  - First in opener at -3.0, shcedule the rest when there are the most buffs
+    //
+    //  Must be called after applying buffs !
     pub fn with_potions(&mut self) -> &mut Self {
-        // TODO schedule the potion at the best possible time
         let potion = Timespan::new(0.0, 30.0);
-        self.buffs.push(potion.clone().offset(-3.0), Buff::Mind(223));
-        for offset in TimelineIterator::from_timeline(self, 365.0, 360.0) {
-            self.buffs.push(potion.clone().offset(offset), Buff::Mind(223));
+        let mut snapshots = Vec::new();
+        for (span, _) in self.buffs.data.iter() {
+            snapshots.push((span.begin, self.buffs.spans(span.begin).len()));
+            snapshots.push((span.end, self.buffs.spans(span.end).len()));
+        }
+
+        snapshots.sort_by(|(a, _), (b, _)| a.partial_cmp(&b).unwrap());
+        snapshots.dedup();
+        // Calculate the score for each span
+        let scores: Vec<(f64, f64)> = snapshots.into_iter().tuple_windows()
+            .map(|((offset_a, buffs_a), (offset_b, buffs_b))| (offset_a, (offset_b - offset_a) * (buffs_b as f64 - buffs_a as f64)))
+            .collect();
+        // Calculate the actual potion score would it be used there
+        let potion_candidates: Vec<_> = scores.iter().enumerate()
+            .map(|(index, (offset, _))| (
+                *offset,
+                scores[index..]
+                    .iter()
+                    .take_while(|(end_offset, _)| *end_offset < offset + 30.0)
+                    .map(|(_, score)| *score)
+                    .sum::<f64>()
+            ))
+        // Calculate the potion score variation. If this goes in the negative, this means it was
+        // better to use the potion on the previous position.
+            .tuple_windows()
+            .map(|((offset_a, score_a), (_, score_b))| (offset_a, score_b - score_a))
+        // Find the places where the gradient crosses 0 from the positive (local maximum)
+            .tuple_windows()
+            .filter_map(|((offset, gradient_a), (_, gradient_b))| if gradient_a >= 0.0 && gradient_b < 0.0 { Some(offset) } else { None })
+            .collect();
+
+        let mut potion_clock = -3.0;
+        self.buffs.push(potion.clone().offset(potion_clock), Buff::Mind(223));
+        potion_clock += 270.0;
+
+        while potion_clock < self.end {
+            if let Some(offset) = potion_candidates.iter().filter(|offset| **offset >= potion_clock).next() {
+                self.buffs.push(potion.clone().offset(*offset), Buff::Mind(223));
+                potion_clock = offset + 270.0;
+            } else {
+                break;
+            }
         }
         self
     }
