@@ -145,6 +145,9 @@ impl Timeline {
         }
     }
 
+    // TODO make sure raid buffs are used fully, eg delay them if some of their duration happens
+    // during downtime
+
     // BRD:
     //  - Songs: Might change duration based on rotation
     //      - Mage's Ballad -> 1% damage / 45s
@@ -314,6 +317,7 @@ impl Timeline {
     //  - Assume bonus is maxed (grade 7 tincture is 223 MND)
     //  - First in opener at -3.0, rest at 6:05, 12:05 etc
     pub fn with_potions(&mut self) -> &mut Self {
+        // TODO schedule the potion at the best possible time
         let potion = Timespan::new(0.0, 30.0);
         self.buffs.push(potion.clone().offset(-3.0), Buff::Mind(223));
         for offset in TimelineIterator::from_timeline(self, 365.0, 360.0) {
