@@ -270,7 +270,6 @@ enum Tab {
     Comparator,
 }
 
-#[derive(Default)]
 pub struct TimelineConfig {
     mind_bonus: f64,
     brd: bool,
@@ -286,6 +285,27 @@ pub struct TimelineConfig {
     potions: bool,
     downtimes: Vec<Timespan>,
     kill_time: f64,
+}
+
+impl Default for TimelineConfig {
+    fn default() -> Self {
+        Self {
+            mind_bonus: Default::default(),
+            brd: Default::default(),
+            dnc: Default::default(),
+            smn: Default::default(),
+            rdm: Default::default(),
+            mnk: Default::default(),
+            drg: Default::default(),
+            rpr: Default::default(),
+            nin: Default::default(),
+            sch: Default::default(),
+            ast: Default::default(),
+            potions: Default::default(),
+            downtimes: Default::default(),
+            kill_time: 600.0,
+        }
+    }
 }
 
 pub struct Ui {
