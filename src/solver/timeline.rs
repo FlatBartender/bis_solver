@@ -495,7 +495,7 @@ impl Timeline {
             if let Some(candidate) = best_candidate {
                 candidate.1 = Some(SGEAction::Phlegma);
                 phlegma_clock += 45.0;
-            } else if let Some(candidate) = sge_timeline.iter_mut().find(|(instant, _, _)| *instant < phlegma_clock_cap) {
+            } else if let Some(candidate) = sge_timeline.iter_mut().find(|(instant, action, _)| *instant >= phlegma_clock_cap && action.is_none()) {
                 candidate.1 = Some(SGEAction::Phlegma);
                 phlegma_clock = candidate.0;
             } else {
