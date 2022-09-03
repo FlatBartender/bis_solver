@@ -215,7 +215,7 @@ impl eframe::App for Ui {
 pub struct UiLink {
     status_text: Arc<Mutex<String>>,
     count: Arc<AtomicUsize>,
-    gearsets: Arc<Mutex<Vec<crate::data::Gearset>>>,
+    gearsets: Arc<Mutex<Vec<(crate::data::Gearset, f64)>>>,
 }
 
 impl UiLink {
@@ -243,7 +243,7 @@ impl UiLink {
         Ok(())
     }
 
-    fn new_gearsets(&self, gearsets: Vec<crate::data::Gearset>) -> eyre::Result<()> {
+    fn new_gearsets(&self, gearsets: Vec<(crate::data::Gearset, f64)>) -> eyre::Result<()> {
         *self.gearsets.lock().unwrap() = gearsets;
         Ok(())
     }
@@ -311,8 +311,6 @@ impl Default for TimelineConfig {
 pub struct Ui {
     ui_link: UiLink,
 
-    gearsets: Arc<Mutex<Vec<crate::data::Gearset>>>,
-
     selected_gearset_a: Option<usize>,
     selected_gearset_b: Option<usize>,
 
@@ -338,19 +336,17 @@ impl Ui {
         Ok(Self {
             ui_link: ui_link.clone(),
 
-            gearsets: ui_link.gearsets.clone(),
-
             selected_gearset_a: None,
             selected_gearset_b: None,
 
             items: items.clone(),
 
             solver: std::sync::Arc::new(
-                crate::solver::SplitSolver::new(ui_link, Arc::new(evaluator))
+                crate::solver::RollingSolver::new(ui_link, Arc::new(evaluator))
                     .with_items(items)
-                    .with_config(SplitConfig::default())
+                    .with_config(RollingConfig::default())
             ),
-            solver_type: crate::solver::SolverType::Split,
+            solver_type: crate::solver::SolverType::Rolling,
             evaluator_type: crate::solver::EvaluatorType::InfiniteDummy,
 
             split_config: SplitConfig::default(),
@@ -401,8 +397,12 @@ impl Ui {
         };
 
         self.solver = solver;
-        self.gearsets.lock().unwrap().sort_by(|a, b| {
-            self.solver.dps(b).partial_cmp(&self.solver.dps(a)).unwrap()
+        self.ui_link.gearsets.lock()
+            .unwrap()
+            .iter_mut()
+            .for_each(|(gearset, dps)| *dps = self.solver.dps(&gearset));
+        self.ui_link.gearsets.lock().unwrap().sort_by(|(_, a), (_, b)| {
+            b.partial_cmp(a).unwrap()
         });
     }
 
@@ -444,7 +444,13 @@ impl Ui {
                     let solver = self.solver.clone();
                     let ui_link = self.ui_link.clone();
                     move || {
-                        ui_link.new_gearsets(solver.solve().unwrap()).unwrap();
+                        let gearsets = solver.solve().unwrap().into_iter()
+                            .map(|gearset| {
+                                let dps = solver.dps(&gearset);
+                                (gearset, dps)
+                            })
+                            .collect();
+                        ui_link.new_gearsets(gearsets).unwrap();
                         ui_link.message("Finished!").unwrap();
                     }
                 });
@@ -457,7 +463,7 @@ impl Ui {
 
     fn comparator_tab(&mut self, ui: &mut egui::Ui) {
         if let Some(index) = self.selected_gearset_a {
-            if let Some(gearset) = self.gearsets.lock().unwrap().get(index) {
+            if let Some((gearset, _)) = self.ui_link.gearsets.lock().unwrap().get(index) {
                 ui.push_id("gearset_a", |ui| {
                     gearset.table_ui(ui);
                 });
@@ -465,7 +471,7 @@ impl Ui {
         }
         ui.separator();
         if let Some(index) = self.selected_gearset_b {
-            if let Some(gearset) = self.gearsets.lock().unwrap().get(index) {
+            if let Some((gearset, _)) = self.ui_link.gearsets.lock().unwrap().get(index) {
                 ui.push_id("gearset_b", |ui| {
                     gearset.table_ui(ui);
                 });
@@ -506,7 +512,7 @@ impl Ui {
             });
         })
         .body(|mut body| {
-            for (index, gearset) in self.gearsets.lock().unwrap().iter().enumerate() {
+            for (index, (_, dps)) in self.ui_link.gearsets.lock().unwrap().iter().enumerate() {
                 body.row(text_size_body, |mut row| {
                     row.col(|ui| {
                         ui.radio_value(&mut self.selected_gearset_a, Some(index), "");
@@ -515,7 +521,7 @@ impl Ui {
                         ui.radio_value(&mut self.selected_gearset_b, Some(index), "");
                     });
                     row.col(|ui| {
-                        ui.label(format!("{:.2}", self.solver.dps(gearset)));
+                        ui.label(format!("{:.2}", dps));
                     });
                 });
             }
@@ -619,6 +625,8 @@ impl Ui {
             ui.add(egui::Slider::new(&mut self.timeline_config.mind_bonus, 0.0..=0.05)
                 .step_by(0.01)
                 .text("Mind bonus")
+                .suffix("%")
+                .custom_formatter(|num, _| format!("{:0}", num * 100.0))
             ),
             ui.checkbox(&mut self.timeline_config.brd, "Bard"),
             ui.checkbox(&mut self.timeline_config.dnc, "Dancer"),
@@ -630,11 +638,57 @@ impl Ui {
             ui.checkbox(&mut self.timeline_config.nin, "Ninja"),
             ui.checkbox(&mut self.timeline_config.sch, "Scholar"),
             ui.checkbox(&mut self.timeline_config.ast, "Astrologian"),
-            ui.checkbox(&mut self.timeline_config.potions, "Use potions"),
+            ui.checkbox(&mut self.timeline_config.potions, "Potions 🍶"),
             ui.separator(),
             ui.add(egui::Slider::new(&mut self.timeline_config.kill_time, 0.0..=1200.0)
                 .text("Kill time")
+                .suffix("s")
             ),
+            ui.separator(),
+            self.downtime_ui(ui),
         ].into_iter().reduce(egui::Response::bitor).unwrap()}).inner
+    }
+}
+
+impl Ui {
+    fn downtime_ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        let mut delete = None;
+        let mut add = false;
+        ui.label("Downtimes");
+        let mut response = ui.vertical(|ui| {
+            self.timeline_config.downtimes.iter_mut().enumerate()
+                .map(|(index, downtime)| { ui.horizontal(|ui| {
+                    let response = ui.add(
+                        egui::DragValue::new(&mut downtime.begin)
+                            .clamp_range(0.0..=downtime.end)
+                            .suffix("s")
+                    ) |
+                    ui.add(
+                        egui::DragValue::new(&mut downtime.end)
+                            .clamp_range(downtime.begin..=self.timeline_config.kill_time)
+                            .suffix("s")
+                    );
+                    let button_response = ui.button("-");
+                    if button_response.clicked() {
+                        delete = Some(index);
+                    }
+                    response | button_response
+                }).inner }).reduce(egui::Response::bitor).into_iter().chain(std::iter::once({
+                    let button_response = ui.button("+");
+                    if button_response.clicked() {
+                        add = true;
+                    }
+                    button_response
+                })).reduce(egui::Response::bitor).unwrap()
+        }).inner;
+        if let Some(index) = delete {
+            self.timeline_config.downtimes.remove(index);
+            response.mark_changed();
+        }
+        if add {
+            self.timeline_config.downtimes.push(Timespan::new(0.0, 0.0));
+            response.mark_changed();
+        }
+        response
     }
 }

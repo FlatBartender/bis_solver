@@ -13,7 +13,7 @@ pub struct RollingConfig {
 impl Default for RollingConfig {
     fn default() -> Self {
         Self {
-            rolling_k: 128,
+            rolling_k: 1024,
         }
     }
 }

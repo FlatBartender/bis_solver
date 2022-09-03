@@ -674,8 +674,8 @@ pub struct SimplifiedBuff {
 // Replace this with ranges
 #[derive(Clone)]
 pub struct Timespan {
-    begin: f64,
-    end: f64
+    pub begin: f64,
+    pub end: f64
 }
 
 impl Timespan {
