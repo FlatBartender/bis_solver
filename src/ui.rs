@@ -400,10 +400,10 @@ impl Ui {
             ) as _,
         };
 
-        self.gearsets.lock().unwrap().sort_by(|a, b| {
-            solver.dps(b).partial_cmp(&solver.dps(a)).unwrap()
-        });
         self.solver = solver;
+        self.gearsets.lock().unwrap().sort_by(|a, b| {
+            self.solver.dps(b).partial_cmp(&self.solver.dps(a)).unwrap()
+        });
     }
 
     fn tabs(&mut self, ui: &mut egui::Ui) {
@@ -429,6 +429,12 @@ impl Ui {
             });
 
             ui.separator();
+
+            if ui.button("Rebuild solver").clicked() {
+                if self.config_changed {
+                    self.rebuild_solver();
+                }
+            }
 
             if ui.button("Run solver").clicked() {
                 if self.config_changed {
