@@ -57,10 +57,8 @@ impl<T: Clone> TimespanSearch<T> {
     pub fn next_start(&self, instant: f64) -> Option<&(Timespan, T)> {
         // Array is sorted so we can use next() after a filter to get the first next downtime
         self.begins.iter()
-            .filter(|index| self.data[**index].0.begin >= instant)
-            .next()
-            .map(|index| self.data.get(*index))
-            .flatten()
+            .find(|index| self.data[**index].0.begin >= instant)
+            .and_then(|index| self.data.get(*index))
     }
 }
 
@@ -85,12 +83,14 @@ impl From<Vec<Timespan>> for TimespanSearch<()> {
     }
 }
 
+type BuffedTimelineAction = (f64, SGEAction, SimplifiedBuff);
+
 pub struct Timeline {
     downtime: TimespanSearch<()>,
     buffs: TimespanSearch<Buff>,
     comp_mind: f64,
     end: f64,
-    timeline_cache: Mutex<HashMap<usize, Vec<(f64, SGEAction, SimplifiedBuff)>>>,
+    timeline_cache: Mutex<HashMap<usize, Vec<BuffedTimelineAction>>>,
 }
 
 // TODO
@@ -344,7 +344,7 @@ impl Timeline {
             snapshots.push((span.end, self.buffs.spans(span.end).len()));
         }
 
-        snapshots.sort_by(|(a, _), (b, _)| a.partial_cmp(&b).unwrap());
+        snapshots.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap());
         snapshots.dedup();
         // Calculate the score for each span
         let scores: Vec<(f64, f64)> = snapshots.into_iter().tuple_windows()
@@ -374,7 +374,7 @@ impl Timeline {
         potion_clock += 270.0;
 
         while potion_clock < self.end {
-            if let Some(offset) = potion_candidates.iter().filter(|offset| **offset >= potion_clock).next() {
+            if let Some(offset) = potion_candidates.iter().find(|offset| **offset >= potion_clock) {
                 self.buffs.push(potion.clone().offset(*offset), Buff::Mind(223));
                 potion_clock = offset + 270.0;
             } else {
@@ -495,7 +495,7 @@ impl Timeline {
             if let Some(candidate) = best_candidate {
                 candidate.1 = Some(SGEAction::Phlegma);
                 phlegma_clock += 45.0;
-            } else if let Some(candidate) = sge_timeline.iter_mut().skip_while(|(instant, _, _)| *instant < phlegma_clock_cap).next() {
+            } else if let Some(candidate) = sge_timeline.iter_mut().find(|(instant, _, _)| *instant < phlegma_clock_cap) {
                 candidate.1 = Some(SGEAction::Phlegma);
                 phlegma_clock = candidate.0;
             } else {

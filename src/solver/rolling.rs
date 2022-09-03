@@ -97,8 +97,10 @@ impl Solver for RollingSolver {
 
         self.ui_link.message("Ranking gear...")?;
 
-        let mut base_gearset = Gearset::default();
-        base_gearset.base = SAGE_BASE;
+        let base_gearset = Gearset {
+            base: SAGE_BASE,
+            ..Default::default()
+        };
         let mut gearsets = vec![base_gearset];
         for item_list in items {
             gearsets = item_list
@@ -127,12 +129,11 @@ impl Solver for RollingSolver {
             .flat_map(|gearset| {
                 let (possible_melds_x, _) = gearset.possible_melds();
                 let (meld_slots_x, _) = gearset.meld_slots();
-                let tentative_meld_x: Vec<_> = possible_melds_x.into_iter()
+                let tentative_meld_x = possible_melds_x.into_iter()
                     .map(|materia_count| (0..=materia_count))
                     .multi_cartesian_product()
-                    .filter(|meld| meld.iter().sum::<u32>() == meld_slots_x)
-                    .collect();
-                std::iter::once(gearset).cartesian_product(tentative_meld_x.into_iter())
+                    .filter(move |meld| meld.iter().sum::<u32>() == meld_slots_x);
+                std::iter::once(gearset).cartesian_product(tentative_meld_x)
             })
             .map(|(mut gearset, meld_x)| {
                 gearset.meld_x = meld_x.try_into().unwrap();
@@ -147,12 +148,11 @@ impl Solver for RollingSolver {
             .flat_map(|gearset| {
                 let (_, possible_melds_ix) = gearset.possible_melds();
                 let (_, meld_slots_ix) = gearset.meld_slots();
-                let tentative_meld_ix: Vec<_> = possible_melds_ix.into_iter()
+                let tentative_meld_ix = possible_melds_ix.into_iter()
                     .map(|materia_count| (0..=materia_count))
                     .multi_cartesian_product()
-                    .filter(|meld| meld.iter().sum::<u32>() == meld_slots_ix)
-                    .collect();
-                std::iter::once(gearset).cartesian_product(tentative_meld_ix.into_iter())
+                    .filter(move |meld| meld.iter().sum::<u32>() == meld_slots_ix);
+                std::iter::once(gearset).cartesian_product(tentative_meld_ix)
             })
             .map(|(mut gearset, meld_ix)| {
                 gearset.meld_ix = meld_ix.try_into().unwrap();
