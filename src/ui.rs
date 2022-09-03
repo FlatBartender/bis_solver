@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::ops::BitOr;
 
 use eframe::egui;
 
@@ -215,16 +216,14 @@ pub struct UiLink {
     status_text: Arc<Mutex<String>>,
     count: Arc<AtomicUsize>,
     gearsets: Arc<Mutex<Vec<crate::data::Gearset>>>,
-    context: egui::Context,
 }
 
 impl UiLink {
-    pub fn new(context: egui::Context) -> Self {
+    pub fn new() -> Self {
         Self {
             status_text: Arc::default(),
             count: Arc::default(),
             gearsets: Arc::default(),
-            context,
         }
     }
 
@@ -271,6 +270,24 @@ enum Tab {
     Comparator,
 }
 
+#[derive(Default)]
+pub struct TimelineConfig {
+    mind_bonus: f64,
+    brd: bool,
+    dnc: bool,
+    smn: bool,
+    rdm: bool,
+    mnk: bool,
+    drg: bool,
+    rpr: bool,
+    nin: bool,
+    sch: bool,
+    ast: bool,
+    potions: bool,
+    downtimes: Vec<Timespan>,
+    kill_time: f64,
+}
+
 pub struct Ui {
     ui_link: UiLink,
 
@@ -284,15 +301,19 @@ pub struct Ui {
     solver: std::sync::Arc<dyn crate::solver::Solver + Send + Sync>,
     solver_type: crate::solver::SolverType,
     evaluator_type: crate::solver::EvaluatorType,
-    k_best: usize,
+
+    split_config: SplitConfig,
+    rolling_config: RollingConfig,
+    timeline_config: TimelineConfig,
+    config_changed: bool,
 
     tab: Tab,
 }
 
 impl Ui {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> eyre::Result<Self> {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> eyre::Result<Self> {
         let items = load_items()?;
-        let ui_link = UiLink::new(cc.egui_ctx.clone());
+        let ui_link = UiLink::new();
         let evaluator = crate::solver::InfiniteDummyEvaluator::default();
         Ok(Self {
             ui_link: ui_link.clone(),
@@ -304,32 +325,59 @@ impl Ui {
 
             items: items.clone(),
 
-            solver: std::sync::Arc::new(crate::solver::SplitSolver::new(items, ui_link, Arc::new(evaluator))),
+            solver: std::sync::Arc::new(
+                crate::solver::SplitSolver::new(ui_link, Arc::new(evaluator))
+                    .with_items(items)
+                    .with_config(SplitConfig::default())
+            ),
             solver_type: crate::solver::SolverType::Split,
             evaluator_type: crate::solver::EvaluatorType::InfiniteDummy,
-            k_best: 10,
+
+            split_config: SplitConfig::default(),
+            rolling_config: RollingConfig::default(),
+            timeline_config: TimelineConfig::default(),
+            config_changed: false,
 
             tab: Tab::Configuration,
         })
     }
 
     fn rebuild_solver(&mut self) {
+        self.config_changed = false;
         let evaluator = match self.evaluator_type {
             EvaluatorType::InfiniteDummy => Arc::new(InfiniteDummyEvaluator::default()) as _,
             EvaluatorType::Timeline => {
-                // TODO
-                // Add UI config for the timeline solver
-                let mut timeline = Timeline::new(vec![Timespan::new(255.0, 267.0)], 494.0, 0.05);
-                timeline.with_brd()
-                    .with_rdm()
-                    .with_rpr()
-                    .with_potions();
+                // P5S: vec![Timespan::new(255.0, 267.0)]
+                let mut timeline = Timeline::new(
+                    self.timeline_config.downtimes.clone(),
+                    self.timeline_config.kill_time,
+                    self.timeline_config.mind_bonus,
+                );
+                if self.timeline_config.brd { timeline.with_brd(); };
+                if self.timeline_config.dnc { timeline.with_dnc(); };
+                if self.timeline_config.smn { timeline.with_smn(); };
+                if self.timeline_config.rdm { timeline.with_rdm(); };
+                if self.timeline_config.mnk { timeline.with_mnk(); };
+                if self.timeline_config.drg { timeline.with_drg(); };
+                if self.timeline_config.rpr { timeline.with_rpr(); };
+                if self.timeline_config.nin { timeline.with_nin(); };
+                if self.timeline_config.sch { timeline.with_sch(); };
+                if self.timeline_config.ast { timeline.with_ast(); };
+                if self.timeline_config.potions { timeline.with_potions(); };
                 Arc::new(timeline) as _
             }
         };
         let solver: Arc<dyn Solver + Send+Sync> = match self.solver_type {
-            SolverType::Split => Arc::new(SplitSolver::new(self.items.clone(), self.ui_link.clone(), evaluator)) as _,
-            SolverType::Rolling => Arc::new(RollingSolver::new(self.items.clone(), self.ui_link.clone(), evaluator, 128)) as _,
+            SolverType::Split => Arc::new(
+                SplitSolver::new(self.ui_link.clone(), evaluator)
+                    .with_items(self.items.clone())
+                    .with_config(self.split_config.clone())
+            ) as _,
+            SolverType::Rolling => Arc::new(
+                RollingSolver::new(self.ui_link.clone(), evaluator)
+                    .with_items(self.items.clone())
+                    .with_config(self.rolling_config.clone())
+            ) as _,
         };
 
         self.gearsets.lock().unwrap().sort_by(|a, b| {
@@ -347,30 +395,36 @@ impl Ui {
 
     fn solver_tab(&mut self, ui: &mut egui::Ui) {
         ui.vertical(|ui| {
-            let solver_select = ui.horizontal(|ui| {
-                ui.label("Solver");
-                ui.selectable_value(&mut self.solver_type, SolverType::Split, "Split")
-                | ui.selectable_value(&mut self.solver_type, SolverType::Rolling, "Rolling")
-            }).inner
-            | ui.horizontal(|ui| {
-                ui.label("Evaluator");
-                ui.selectable_value(&mut self.evaluator_type, EvaluatorType::InfiniteDummy, "Infinite Dummy")
-                | ui.selectable_value(&mut self.evaluator_type, EvaluatorType::Timeline, "Timeline")
-            }).inner;
-            if solver_select.clicked() {
-                self.rebuild_solver();
-            }
-            ui.add(egui::Slider::new(&mut self.k_best, 1..=1000).text("K Best sets"));
+            egui::Grid::new("config_grid").striped(true).show(ui, |ui| {
+                ui.label("Solvers");
+                self.config_changed |= self.split_config_ui(ui).changed();
+                self.config_changed |= self.rolling_config_ui(ui).changed();
+                ui.end_row();
+
+                ui.label("Evaluators");
+                self.config_changed |= self.infinite_dummy_ui(ui).changed();
+                self.config_changed |= self.timeline_ui(ui).changed();
+                ui.end_row();
+
+            });
+
+            ui.separator();
+
             if ui.button("Run solver").clicked() {
+                if self.config_changed {
+                    self.rebuild_solver();
+                }
                 std::thread::spawn({
                     let solver = self.solver.clone();
                     let ui_link = self.ui_link.clone();
-                    let k_best = self.k_best;
                     move || {
-                        ui_link.new_gearsets(solver.k_best_sets(k_best).unwrap()).unwrap();
-                        ui_link.message(format!("Finished finding top {} sets!", k_best)).unwrap();
+                        ui_link.new_gearsets(solver.solve().unwrap()).unwrap();
+                        ui_link.message("Finished!").unwrap();
                     }
                 });
+            }
+            if self.config_changed {
+                ui.colored_label(egui::Color32::YELLOW, "⚠ Solver configuration changed");
             }
         });
     }
@@ -493,3 +547,68 @@ impl crate::data::Item {
     }
 }
 
+impl Ui {
+    fn split_config_ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.vertical(|ui| {
+            [
+                ui.selectable_value(&mut self.solver_type, SolverType::Split, "Split"),
+                ui.add(egui::Slider::new(&mut self.split_config.k_stage_1, 1..=1000).text("K stage 1")),
+                ui.add(egui::Slider::new(&mut self.split_config.k_stage_2, 1..=1000).text("K stage 2")),
+            ].into_iter().reduce(egui::Response::bitor).unwrap()
+        }).inner
+    }
+}
+
+impl Ui {
+    fn rolling_config_ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.vertical(|ui| {
+            [
+                ui.selectable_value(&mut self.solver_type, SolverType::Rolling, "Rolling"),
+                ui.add(egui::Slider::new(&mut self.rolling_config.rolling_k, 1..=100000).text("Rolling K")),
+            ].into_iter().reduce(egui::Response::bitor).unwrap()
+        }).inner
+    }
+}
+
+impl Ui {
+    fn infinite_dummy_ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.vertical(|ui| {[
+            ui.selectable_value(
+                &mut self.evaluator_type,
+                EvaluatorType::InfiniteDummy,
+                "Infinite Dummy"
+            ),
+        ].into_iter().reduce(egui::Response::bitor).unwrap()}).inner
+    }
+}
+
+impl Ui {
+    fn timeline_ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.vertical(|ui| {[
+            ui.selectable_value(
+                &mut self.evaluator_type,
+                EvaluatorType::Timeline,
+                "Timeline"
+            ),
+            ui.add(egui::Slider::new(&mut self.timeline_config.mind_bonus, 0.0..=0.05)
+                .step_by(0.01)
+                .text("Mind bonus")
+            ),
+            ui.checkbox(&mut self.timeline_config.brd, "Bard"),
+            ui.checkbox(&mut self.timeline_config.dnc, "Dancer"),
+            ui.checkbox(&mut self.timeline_config.smn, "Summoner"),
+            ui.checkbox(&mut self.timeline_config.rdm, "Red Mage"),
+            ui.checkbox(&mut self.timeline_config.mnk, "Monk"),
+            ui.checkbox(&mut self.timeline_config.drg, "Dragoon"),
+            ui.checkbox(&mut self.timeline_config.rpr, "Reaper"),
+            ui.checkbox(&mut self.timeline_config.nin, "Ninja"),
+            ui.checkbox(&mut self.timeline_config.sch, "Scholar"),
+            ui.checkbox(&mut self.timeline_config.ast, "Astrologian"),
+            ui.checkbox(&mut self.timeline_config.potions, "Use potions"),
+            ui.separator(),
+            ui.add(egui::Slider::new(&mut self.timeline_config.kill_time, 0.0..=1200.0)
+                .text("Kill time")
+            ),
+        ].into_iter().reduce(egui::Response::bitor).unwrap()}).inner
+    }
+}

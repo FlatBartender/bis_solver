@@ -5,24 +5,55 @@ use std::sync::Arc;
 use crate::data::*;
 use crate::solver::{Evaluator, EvaluatorWrapper, Solver, SAGE_BASE};
 
+#[derive(Clone)]
+pub struct SplitConfig {
+    pub k_stage_1: usize,
+    pub k_stage_2: usize,
+}
+
+impl Default for SplitConfig {
+    fn default() -> Self {
+        Self {
+            k_stage_1: 10,
+            k_stage_2: 10,
+        }
+    }
+}
+
 pub struct SplitSolver {
     items: Vec<Item>,
     ui_link: UiLink,
     evaluator: Arc<dyn Evaluator + Send+Sync>,
+    config: SplitConfig,
 }
 
 impl SplitSolver {
-    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator_factory: Arc<dyn Evaluator + Send+Sync>) -> Self {
+    pub fn new(ui_link: UiLink, evaluator: Arc<dyn Evaluator + Send+Sync>) -> Self {
+        Self {
+            items: Vec::default(),
+            ui_link,
+            evaluator,
+            config: SplitConfig::default(),
+        }
+    }
+
+    pub fn with_items(self, items: Vec<Item>) -> Self {
         Self {
             items,
-            ui_link,
-            evaluator: evaluator_factory,
+            ..self
+        }
+    }
+
+    pub fn with_config(self, config: SplitConfig) -> Self {
+        Self {
+            config,
+            ..self
         }
     }
 }
 
 impl Solver for SplitSolver {
-    fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>> {
+    fn solve(&self) -> eyre::Result<Vec<Gearset>> {
         self.ui_link.set_count(0)?;
         self.ui_link.message("Loading items...")?;
         let items = self.items.clone();
@@ -77,7 +108,7 @@ impl Solver for SplitSolver {
             .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
-            .k_smallest(k)
+            .k_smallest(self.config.k_stage_1)
             .map(|rev| rev.0)
             .map(|EvaluatorWrapper { gearset, .. }| gearset);
 
@@ -117,7 +148,7 @@ impl Solver for SplitSolver {
             .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
-            .k_smallest(k)
+            .k_smallest(self.config.k_stage_2)
             .map(|rev| rev.0)
             .map(|EvaluatorWrapper { gearset, .. }| gearset)
             .collect();

@@ -12,10 +12,9 @@ pub use timeline::*;
 pub use split::*;
 pub use rolling::*;
 
-// SGE base but viera/veena
 const SAGE_BASE: Stats = Stats {
     weapon_damage: 0,
-    mind: 450,
+    mind: 448,
     vitality: 390,
     piety: 390,
     direct_hit: 400,
@@ -73,7 +72,7 @@ impl std::str::FromStr for ItemSlot {
 }
 
 pub trait Solver {
-    fn k_best_sets(&self, k: usize) -> eyre::Result<Vec<Gearset>>;
+    fn solve(&self) -> eyre::Result<Vec<Gearset>>;
     fn dps(&self, gearset: &Gearset) -> f64;
 }
 

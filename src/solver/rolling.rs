@@ -5,25 +5,52 @@ use crate::solver::{Evaluator, EvaluatorWrapper, Solver, SAGE_BASE};
 
 use itertools::Itertools;
 
+#[derive(Clone)]
+pub struct RollingConfig {
+    pub rolling_k: usize,
+}
+
+impl Default for RollingConfig {
+    fn default() -> Self {
+        Self {
+            rolling_k: 128,
+        }
+    }
+}
+
 pub struct RollingSolver {
     items: Vec<Item>,
     ui_link: UiLink,
     evaluator: Arc<dyn Evaluator + Send+Sync>,
-    rolling_limit: usize,
+    config: RollingConfig,
 }
 
 impl RollingSolver {
-    pub fn new(items: Vec<Item>, ui_link: UiLink, evaluator: Arc<dyn Evaluator + Send+Sync>, rolling_limit: usize) -> Self {
+    pub fn new(ui_link: UiLink, evaluator: Arc<dyn Evaluator + Send+Sync>) -> Self {
         Self {
-            items,
+            items: Vec::default(),
             ui_link,
             evaluator,
-            rolling_limit,
+            config: RollingConfig::default(),
+        }
+    }
+
+    pub fn with_items(self, items: Vec<Item>) -> Self {
+        Self {
+            items,
+            ..self
+        }
+    }
+
+    pub fn with_config(self, config: RollingConfig) -> Self {
+        Self {
+            config,
+            ..self
         }
     }
 }
 impl Solver for RollingSolver {
-    fn k_best_sets(&self, _: usize) -> eyre::Result<Vec<Gearset>> {
+    fn solve(&self) -> eyre::Result<Vec<Gearset>> {
         self.ui_link.set_count(0)?;
         self.ui_link.message("Loading items...")?;
         let items = self.items.clone();
@@ -86,7 +113,7 @@ impl Solver for RollingSolver {
                 .inspect(|_| self.ui_link.increment().unwrap())
                 .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
                 .map(std::cmp::Reverse)
-                .k_smallest(self.rolling_limit)
+                .k_smallest(self.config.rolling_k)
                 .dedup()
                 .map(|rev| rev.0)
                 .map(|EvaluatorWrapper { gearset, .. }| gearset)
@@ -114,7 +141,7 @@ impl Solver for RollingSolver {
             .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
-            .k_smallest(self.rolling_limit)
+            .k_smallest(self.config.rolling_k)
             .map(|rev| rev.0)
             .map(|EvaluatorWrapper { gearset, .. }| gearset)
             .flat_map(|gearset| {
@@ -134,7 +161,7 @@ impl Solver for RollingSolver {
             .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
-            .k_smallest(self.rolling_limit)
+            .k_smallest(self.config.rolling_k)
             .map(|rev| rev.0)
             .map(|EvaluatorWrapper { gearset, .. }| gearset)
             .cartesian_product(food.into_iter())
@@ -145,7 +172,7 @@ impl Solver for RollingSolver {
             .inspect(|_| self.ui_link.increment().unwrap())
             .map(|gearset| EvaluatorWrapper { evaluator: self.evaluator.clone(), gearset })
             .map(std::cmp::Reverse)
-            .k_smallest(self.rolling_limit)
+            .k_smallest(self.config.rolling_k)
             .map(|rev| rev.0)
             .map(|EvaluatorWrapper { gearset, .. }| gearset)
             .collect();
