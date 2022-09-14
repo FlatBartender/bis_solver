@@ -415,13 +415,26 @@ impl Timeline {
         }
         let gcd15 = stats.gcd15().scalar();
         let mut sge_timeline: Vec<(f64, Option<SGEAction>, Vec<Buff>)> = Vec::new();
+
+        // TODO Take into account GCD clip for the rotation
+        let casts_per_cycle = (30.0 - 2.5) / gcd;
+        let early_refresh_casts = casts_per_cycle.floor();
+        let late_refresh_casts = casts_per_cycle.ceil();
+        // Early refresh has no DoT cost, but has dosis cost
+        let early_refresh_loss = (30.0 - early_refresh_casts * gcd - 2.5) * 330.0 / gcd;
+        // Late refresh has no dosis cost but has a DoT cost
+        let late_refresh_loss = (30.0 - late_refresh_casts * gcd - 2.5) * 70.0 / 3.0;
+        let casts_per_cycle = if early_refresh_loss <= late_refresh_loss {
+            // We're on an early refresh cycle
+            early_refresh_casts as usize
+        } else {
+            // We're on a late refresh cycle
+            late_refresh_casts as usize
+        };
+        let cycle_length = casts_per_cycle as f64 * gcd + 2.5;
+
         // edosis and eukrasis usage
-        // Take into account GCD clip for the rotation
-        // TODO take DPS loss of DoT clip into account
-        // (clip time / 3.0 * potency * damage per dot potency)
-        let cast_per_cycle = ((30.0 - 2.5) / gcd).round() as usize;
-        let cycle_length = cast_per_cycle as f64 * gcd + 2.5;
-        let edosis_dosis_duration_breakpoint = (330.0/70.0*3.0_f64).ceil();
+        // TODO take into account the buffs when deciding whether to refresh ?
         let mut edosis_iter = TimelineIterator::from_timeline(self, 1.0, cycle_length);
         while let Some(offset) = edosis_iter.next() {
             if let Some((next_downtime, _)) = self.downtime.next_start(offset) {
@@ -451,7 +464,7 @@ impl Timeline {
                 // Make sure we stop casting before the next downtime
                 cast_iter.end = downtime.0.begin;
             }
-            for offset in cast_iter.take(cast_per_cycle) {
+            for offset in cast_iter.take(casts_per_cycle) {
                 let buffs = self.buffs.spans(offset).into_iter().map(unwrap_tsearch).collect();
                 casts.push((offset, None, buffs));
             }
