@@ -425,7 +425,8 @@ impl Timeline {
         let mut edosis_iter = TimelineIterator::from_timeline(self, 1.0, cycle_length);
         while let Some(offset) = edosis_iter.next() {
             if let Some((next_downtime, _)) = self.downtime.next_start(offset) {
-                if next_downtime.begin - offset < edosis_dosis_duration_breakpoint {
+                let edosis_ticks_before_downtime = (next_downtime.begin - offset) / 3.0;
+                if edosis_ticks_before_downtime * 70.0 < 330.0 {
                     // Reserve time to cast eukrasis and skip this cast
                     // 0.95 instead 1.0 to allow easy removing of actions that happen in downtime
                     //   later. if it was 1.0, edosis cast would be = downtime.end and would be
