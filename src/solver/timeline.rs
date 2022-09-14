@@ -449,6 +449,12 @@ impl Timeline {
                     continue;
                 }
             }
+            let edosis_ticks_before_end = (self.end - offset) / 3.0;
+            if edosis_ticks_before_end * 70.0 < 330.0 {
+                // If refreshing edosis wouldn't be worth because of the end of the fight, stop
+                // scheduling dosis/eukrasis
+                break;
+            }
             sge_timeline.push((offset, Some(SGEAction::Eukrasis), Vec::new()));
             let buffs = self.buffs.spans(offset).into_iter().map(unwrap_tsearch).collect();
             sge_timeline.push((offset+1.0, Some(SGEAction::Edosis), buffs));
