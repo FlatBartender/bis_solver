@@ -647,6 +647,8 @@ pub fn timeline_dps(tl: &Timeline, gearset: &Gearset) -> f64 {
         edosis_tick += 3.0;
     }
     let mut damage = 0.0;
+    // TODO instead of doing damage calculation for each ticks, take an average dmaage over the DoT
+    // duration
     edosis_ticks.retain(|tick| tl.downtime.spans(*tick).is_empty());
     for tick in edosis_ticks {
         if let Some((_, _, buffs)) = timeline.iter()
