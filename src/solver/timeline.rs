@@ -416,10 +416,11 @@ impl Timeline {
         let gcd15 = stats.gcd15().scalar();
         let mut sge_timeline: Vec<(f64, Option<SGEAction>, Vec<Buff>)> = Vec::new();
 
-        // TODO Take into account GCD clip for the rotation
         let casts_per_cycle = (30.0 - 2.5) / gcd;
         let early_refresh_casts = casts_per_cycle.floor();
         let late_refresh_casts = casts_per_cycle.ceil();
+        // TODO make an edosis planning with early/late for the whole fight, and use raid buffs to
+        // check whether or not it's worth to early/late refresh
         // Early refresh has no DoT cost, but has dosis cost
         let early_refresh_loss = (30.0 - early_refresh_casts * gcd - 2.5) * 330.0 / gcd;
         // Late refresh has no dosis cost but has a DoT cost
