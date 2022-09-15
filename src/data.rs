@@ -66,6 +66,10 @@ pub trait StatRepo {
         Unit(195 * (self.mind() - 390) / 390 + 100)
     }
 
+    fn trait_bonus(&self) -> Unit<1, 100> {
+        Unit(130)
+    }
+
     fn crit_scalar(&self) -> Unit<1, 1000> {
         Unit(1000 - self.crit_rate().0 + self.crit_rate().0 * self.crit_multiplier().0 / 1000)
     }

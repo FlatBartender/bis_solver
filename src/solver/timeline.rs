@@ -619,7 +619,8 @@ impl<T: StatRepo> StatExt for T {
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
         let sps = self.sps_multiplier();
-        let damage = 70.scale(map).scale(det).scale(sps).scale(adj_wd) * 130 / 100 + 1;
+        let trt = self.trait_bonus();
+        let damage = 70.scale(map).scale(det).scale(sps).scale(adj_wd).scale(trt) + 1;
         damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
     }
 
@@ -627,7 +628,8 @@ impl<T: StatRepo> StatExt for T {
         let adj_wd = self.adjusted_weapon_damage();
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
-        let damage = 330.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        let trt = self.trait_bonus();
+        let damage = 330.scale(map).scale(det).scale(adj_wd).scale(trt);
         damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
     }
 
@@ -635,7 +637,8 @@ impl<T: StatRepo> StatExt for T {
         let adj_wd = self.adjusted_weapon_damage();
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
-        let damage = 510.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        let trt = self.trait_bonus();
+        let damage = 510.scale(map).scale(det).scale(adj_wd).scale(trt);
         damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
     }
 }
