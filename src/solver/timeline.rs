@@ -405,6 +405,8 @@ impl Timeline {
     // Dosis placement:
     // - Every free GCD that is not edosis or phlegma
     pub fn sge_timeline(&self, spell_speed: u32) -> Vec<(f64, SGEAction, SimplifiedBuff)> {
+        // TODO Timeline also depends on downtime/end time, right now it always uses the cached
+        // timelines even when those values are changed
         let stats = crate::data::Stats {
             spell_speed,
             ..Stats::default()
