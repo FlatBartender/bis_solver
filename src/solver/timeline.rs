@@ -619,7 +619,7 @@ impl<T: StatRepo> StatExt for T {
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
         let sps = self.sps_multiplier();
-        let damage = 70.scale(adj_wd).scale(map).scale(det).scale(sps) * 130 / 100 + 1;
+        let damage = 70.scale(map).scale(det).scale(sps).scale(adj_wd) * 130 / 100 + 1;
         damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
     }
 
