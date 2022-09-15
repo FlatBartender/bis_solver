@@ -421,11 +421,19 @@ impl Timeline {
         let late_refresh_casts = casts_per_cycle.ceil();
         // TODO make an edosis planning with early/late for the whole fight, and use raid buffs to
         // check whether or not it's worth to early/late refresh
-        // Early refresh has no DoT cost, but has dosis cost
-        let early_refresh_loss = (30.0 - early_refresh_casts * gcd - 2.5) * 330.0 / gcd;
-        // Late refresh has no dosis cost but has a DoT cost
-        let late_refresh_loss = (30.0 - late_refresh_casts * gcd - 2.5) * 70.0 / 3.0;
-        let casts_per_cycle = if early_refresh_loss <= late_refresh_loss {
+        let early_refresh_pps = {
+            let cycle = gcd * early_refresh_casts + 2.5;
+            let dosis_per_second = early_refresh_casts / cycle;
+            let ticks_per_second = cycle.min(30.0) / cycle / 3.0;
+            dosis_per_second * 330.0 + ticks_per_second * 70.0
+        };
+        let late_refresh_pps = {
+            let cycle = gcd * late_refresh_casts + 2.5;
+            let dosis_per_second = late_refresh_casts / cycle;
+            let ticks_per_second = cycle.min(30.0) / cycle / 3.0;
+            dosis_per_second * 330.0 + ticks_per_second * 70.0
+        };
+        let casts_per_cycle = if early_refresh_pps >= late_refresh_pps {
             // We're on an early refresh cycle
             early_refresh_casts as usize
         } else {
