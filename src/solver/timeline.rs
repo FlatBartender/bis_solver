@@ -658,23 +658,30 @@ pub fn timeline_dps(tl: &Timeline, gearset: &Gearset) -> f64 {
         edosis_tick += 3.0;
     }
     let mut damage = 0.0;
-    // TODO instead of doing damage calculation for each ticks, take an average dmaage over the DoT
-    // duration
-    edosis_ticks.retain(|tick| tl.downtime.spans(*tick).is_empty());
-    for tick in edosis_ticks {
-        if let Some((_, _, buffs)) = timeline.iter()
-            .filter(|(_, action, _)| *action == SGEAction::Edosis)
-                .filter(|(instant, _, _)| *instant >= tick - 30.0 && *instant <= tick)
-                .last()
-                {
-                    let mut stats = stats.clone();
-                    stats.critical += (buffs.critical * stats.critical as f64) as u32;
-                    stats.direct_hit += (buffs.direct_hit * stats.direct_hit as f64) as u32;
-                    stats.mind += buffs.mind;
-                    damage += (stats.edosis_damage_per_tick() * (1.0 + buffs.damage)).trunc();
-                }
+
+    // Get dosis damage, based on the duration of edosis / 3.0 (average number of ticks in an edosis
+    // cast).
+    for (edosis_start, _, buffs) in timeline.iter().filter(|(_, action, _)| *action == SGEAction::Edosis) {
+        // Take into account next event: downtime, kill, or refresh
+        let next_event = timeline.iter().find(|(instant, action, _)| *instant > *edosis_start && *action == SGEAction::Edosis)
+            .map(|(instant, _, _)| *instant)
+            .or_else(|| tl.downtime.next_start(*edosis_start).map(|(t, _)| t.begin))
+            .unwrap_or(tl.end);
+        // Find max duration if it would be rewritten, or interrupted by downtime or kill time
+        // Or 30s at maximum
+        // TODO this doesn't take into account "short" downtimes where the DoT would overlap the
+        // downtime without being refreshed
+        let edosis_length = (next_event - edosis_start)
+            .min(30.0);
+
+        let mut stats = stats.clone();
+        stats.critical += (buffs.critical * stats.critical as f64) as u32;
+        stats.direct_hit += (buffs.direct_hit * stats.direct_hit as f64) as u32;
+        stats.mind += buffs.mind;
+        damage += (stats.edosis_damage_per_tick() * (1.0 + buffs.damage) * edosis_length / 3.0).trunc();
     }
 
+    // Get the damage for all other actions, meaning dosis and phlegma
     for (_, action, buffs) in timeline {
         let mut stats = stats.clone();
         stats.critical += (buffs.critical * stats.critical as f64) as u32;
@@ -683,10 +690,12 @@ pub fn timeline_dps(tl: &Timeline, gearset: &Gearset) -> f64 {
         damage += match action {
             SGEAction::Dosis => (stats.dosis_damage() * (1.0 + buffs.damage)).trunc(),
             SGEAction::Phlegma => (stats.phlegma_damage() * (1.0 + buffs.damage)).trunc(),
+            // Skip eukrasia and edosis as we alreadi took those into account
             _ => {0.0}
         }
     }
 
+    // TODO should the DPS be calculated with only the end, or factoring out downtime too ?
     damage / tl.end
 }
 
