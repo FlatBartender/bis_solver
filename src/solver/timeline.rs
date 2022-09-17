@@ -93,9 +93,8 @@ pub struct Timeline {
     timeline_cache: Mutex<HashMap<usize, Vec<BuffedTimelineAction>>>,
 }
 
-// TODO
-// Add tweaking for downtimes to take into account players using 1 GCD after downtime, some buffs
-// are also used before the end of downtime (potion, something on NIN, and BRD's songs)
+// TODO Add tweaking for downtimes to take into account players using 1 GCD after downtime, some
+// buffs are also used before the end of downtime (potion, something on NIN, and BRD's songs)
 struct TimelineIterator {
     downtime: TimespanSearch<()>,
     step: f64,
@@ -551,8 +550,7 @@ impl Timeline {
 
         self.timeline_cache.lock().unwrap().insert((gcd*100.0) as usize, timeline.clone());
 
-        // TODO
-        // This needs testing.
+        // TODO This needs testing.
 
         timeline
     }
@@ -706,8 +704,7 @@ pub struct SimplifiedBuff {
     critical: f64,
 }
 
-// TODO
-// Replace this with ranges
+// TODO Replace this with ranges ?
 #[derive(Clone)]
 pub struct Timespan {
     pub begin: f64,
