@@ -39,7 +39,7 @@ pub trait StatRepo {
     }
 
     fn crit_rate(&self) -> Unit<1, 1000> {
-        Unit(50 + 200 * (self.critical() - 400) / 1900 )
+        Unit(50 + 200 * (self.critical() - 400) / 1900)
     }
 
     fn det_multiplier(&self) -> Unit<1, 1000> {
