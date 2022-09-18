@@ -1,0 +1,10 @@
+[book]
+authors = ["Flat Bartender"]
+language = "en"
+multilingual = false
+src = "doc"
+title = "SGE BiS Solver"
+
+[preprocessor.include-checks]
+command = "mdbook-include-check"
+before = ["links"]
