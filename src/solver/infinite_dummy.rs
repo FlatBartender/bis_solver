@@ -40,7 +40,7 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
         let damage = 330.scale(map).scale(det).scale(adj_wd) * 130 / 100;
-        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        damage as f64 * self.crit_factor() * self.dh_factor()
     }
 
     fn phlegma_score(&self) -> f64 {
@@ -48,7 +48,7 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
         let damage = 510.scale(map).scale(det).scale(adj_wd) * 130 / 100;
-        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        damage as f64 * self.crit_factor() * self.dh_factor()
     }
 
     fn eukr_dosis_score(&self) -> f64 {
@@ -59,7 +59,7 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
         let ticks_lost_per_cast = (30.0 - self.cycle_length()).abs() / 3.0;
         let expected_tick_number = 10.0 * (1.0 - ticks_lost_per_cast) + 9.0 * ticks_lost_per_cast;
         let damage = 70.scale(adj_wd).scale(map).scale(det).scale(sps) * 130 / 100 + 1;
-        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar() * expected_tick_number
+        damage as f64 * self.crit_factor() * self.dh_factor() * expected_tick_number
     }
 
     fn pps(&self) -> f64 {

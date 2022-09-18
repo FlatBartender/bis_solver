@@ -70,12 +70,12 @@ pub trait StatRepo {
         Unit(130)
     }
 
-    fn crit_scalar(&self) -> Unit<1, 1000> {
-        Unit(1000 - self.crit_rate().0 + self.crit_rate().0 * self.crit_multiplier().0 / 1000)
+    fn crit_factor(&self) -> f64 {
+        1.0 + self.crit_rate().scalar() * (self.crit_multiplier().scalar() - 1.0)
     }
 
-    fn dh_scalar(&self) -> Unit<1, 1000> {
-        Unit(1000 - self.dh_rate().0 + self.dh_rate().0 * 125 / 100)
+    fn dh_factor(&self) -> f64 {
+        1.0 + self.dh_rate().scalar() * 0.25
     }
 }
 

@@ -621,7 +621,7 @@ impl<T: StatRepo> StatExt for T {
         let sps = self.sps_multiplier();
         let trt = self.trait_bonus();
         let damage = 70.scale(map).scale(det).scale(sps).scale(adj_wd).scale(trt) + 1;
-        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        damage as f64 * self.crit_factor() * self.dh_factor()
     }
 
     fn dosis_damage(&self) -> f64 {
@@ -630,7 +630,7 @@ impl<T: StatRepo> StatExt for T {
         let det = self.det_multiplier();
         let trt = self.trait_bonus();
         let damage = 330.scale(map).scale(det).scale(adj_wd).scale(trt);
-        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        damage as f64 * self.crit_factor() * self.dh_factor()
     }
 
     fn phlegma_damage(&self) -> f64 {
@@ -639,7 +639,7 @@ impl<T: StatRepo> StatExt for T {
         let det = self.det_multiplier();
         let trt = self.trait_bonus();
         let damage = 510.scale(map).scale(det).scale(adj_wd).scale(trt);
-        damage as f64 * self.crit_scalar().scalar() * self.dh_scalar().scalar()
+        damage as f64 * self.crit_factor() * self.dh_factor()
     }
 }
 
