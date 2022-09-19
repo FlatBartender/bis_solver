@@ -16,3 +16,6 @@ tracing = "0.1.36"
 tracing-subscriber = "0.3.15"
 eyre = "0.6.8"
 egui_extras = "0.19.0"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.85"
+flagset = "0.4.3"

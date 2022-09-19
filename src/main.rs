@@ -2,6 +2,7 @@ mod solver;
 mod utils;
 mod ui;
 mod data;
+mod xivapi;
 
 use ui::*;
 
