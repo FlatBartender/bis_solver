@@ -2,6 +2,9 @@ use crate::solver::Evaluator;
 use crate::utils::Scalable;
 use crate::data::Gearset;
 
+const PHLEGMA_CD: f64 = 40.0;
+const PHLEGMA_POTENCY: f64 = 600.0;
+
 pub trait InfiniteDummyStat: crate::data::StatRepo {
     fn cycle_length(&self) -> f64 {
         self.casts_per_cycle() as f64 * self.adjusted_gcd() + 2.5
@@ -35,7 +38,7 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
     }
 
     fn phlegma_per_cycle(&self) -> f64 {
-        self.cycle_length() / 45.0
+        self.cycle_length() / PHLEGMA_CD
     }
 
     fn dosis_per_cycle(&self) -> f64 {
@@ -70,7 +73,7 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
         let adj_wd = self.adjusted_weapon_damage();
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
-        let damage = 510.scale(map).scale(det).scale(adj_wd) * 130 / 100;
+        let damage = (PHLEGMA_POTENCY as u32).scale(map).scale(det).scale(adj_wd) * 130 / 100;
         damage as f64 * self.crit_factor() * self.dh_factor()
     }
 
@@ -85,7 +88,7 @@ pub trait InfiniteDummyStat: crate::data::StatRepo {
 
     fn pps(&self) -> f64 {
         self.dosis_per_second() * 330.0
-            + self.phlegma_per_second() * 510.0
+            + self.phlegma_per_second() * PHLEGMA_POTENCY
             + self.eukr_dosis_ticks_per_second() * 700.0
     }
 

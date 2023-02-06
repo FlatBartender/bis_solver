@@ -6,6 +6,9 @@ use itertools::Itertools;
 
 use crate::data::*;
 
+const PHLEGMA_CD: f64 = 40.0;
+const PHLEGMA_POTENCY: f64 = 600.0;
+
 #[derive(Clone)]
 pub struct TimespanSearch<T: Clone> {
     data: Vec<(Timespan, T)>,
@@ -515,8 +518,8 @@ impl Timeline {
         // If it can't be put here (downtime or something)
         // Put it in the next available GCD
         while phlegma_clock < self.end {
-            let phlegma_clock_stacked = phlegma_clock + 45.0;
-            let phlegma_clock_cap = phlegma_clock + 45.0*2.0;
+            let phlegma_clock_stacked = phlegma_clock + PHLEGMA_CD;
+            let phlegma_clock_cap = phlegma_clock + PHLEGMA_CD*2.0;
             // TODO optimize by not processing the array many times
             let best_candidate = sge_timeline.iter_mut()
                 .skip_while(|(instant, _, _)| *instant < phlegma_clock_stacked)
@@ -524,7 +527,7 @@ impl Timeline {
                 .max_by(|(_, _, a), (_, _, b)| a.len().cmp(&b.len()));
             if let Some(candidate) = best_candidate {
                 candidate.1 = Some(SGEAction::Phlegma);
-                phlegma_clock += 45.0;
+                phlegma_clock += PHLEGMA_CD;
             } else if let Some(candidate) = sge_timeline.iter_mut().find(|(instant, action, _)| *instant >= phlegma_clock_cap && action.is_none()) {
                 candidate.1 = Some(SGEAction::Phlegma);
                 phlegma_clock = candidate.0;
@@ -638,7 +641,7 @@ impl<T: StatRepo> StatExt for T {
         let map = self.magic_attack_power();
         let det = self.det_multiplier();
         let trt = self.trait_bonus();
-        let damage = 510.scale(map).scale(det).scale(adj_wd).scale(trt);
+        let damage = PHLEGMA_POTENCY.scale(map).scale(det).scale(adj_wd).scale(trt);
         damage as f64 * self.crit_factor() * self.dh_factor()
     }
 }
