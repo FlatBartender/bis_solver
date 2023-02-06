@@ -6,38 +6,47 @@ head;Abyssos Helm of Healing;;211;205;172;;;;120;2;0
 head;Augmented Lunar Envoy's Hairpin of Healing;;211;205;;;172;120;;2;0
 head;Purgatory Helm of Healing;;190;181;165;;;116;;2;0
 head;Rinascita Beret of Healing;;190;181;;;116;165;;2;1
+head;Augmented Rinascita Beret of Healing;;200;193;;;118;168;;2;0
 body;Abyssos Surcoat of Healing;;336;327;;;273;191;;2;0
 body;Augmented Lunar Envoye's Justaucorps of Healing;;336;327;191;;;273;;2;0
 body;Purgatory Surcoat of Healing;;301;287;;;262;183;;2;0
 body;Rinascita Coat of Healing;;301;287;262;;;183;;2;1
+body;Augmented Rinascita Coat of Healing;;318;306;268;;;188;;2;0
 hands;Abyssos Armguards of Healing;;211;205;120;;172;;;2;0
 hands;Augmented Lunar Envoy's Gloves of Healing;;211;205;;;;120;172;2;0
 hands;Purgatory Armguards of Healing;;190;181;165;;;116;;2;0
 hands;Rinascita Gloves of Healing;;190;181;;;;116;165;2;1
+hands;Augmented Rinascita Gloves of Healing;;200;193;;;;118;168;2;0
 legs;Abyssos Culottes of Healing;;336;327;191;;;273;;2;0
 legs;Augmented Lunar Envoy's Longkilt of Healing;;336;327;;;273;191;;2;0
 legs;Purgatory Culottes of Healing;;301;287;262;;;;183;2;0
 legs;Rinascita Poleyns of Healing;;301;287;;;183;262;;2;1
+legs;Augmented Rinascita Poleyns of Healing;;318;306;;;188;268;;2;0
 feet;Abyssos Boots of Healing;;211;205;;;172;120;;2;0
 feet;Augmented Lunar Envoye's Boots of Healing;;211;205;172;;;;120;2;0
 feet;Purgatory Boots of Healing;;190;181;;;165;116;;2;0
 feet;Rinascita Shoes of Healing;;190;181;;;;165;116;2;1
+feet;Augmented Rinascita Shoes of Healing;;200;193;;;;168;118;2;0
 earrings;Abyssos Earrings of Healing;;167;162;;;;136;95;2;0
 earrings;Augmented Lunar Envoy's Earring of Healing;;167;162;95;;136;;;2;0
 earrings;Purgatory Earrings of Healing;;149;142;;;;91;130;1;0
 earrings;Rinascita Earrings of Healing;;149;142;91;;130;;;1;1
+earrings;Augmented Rinascita Earrings of Healing;;158;152;93;;133;;;2;0
 necklace;Abyssos Choker of Healing;;167;162;136;;;95;;2;0
 necklace;Augmented Lunar Envoy's Necklace of Healing;;167;162;;;95;;136;2;0
 necklace;Purgatory Choker of Healing;;149;142;91;;;130;;1;0
 necklace;Rinascita Necklace of Healing;;149;142;130;;;;91;1;1
+necklace;Augmented Rinascita Necklace of Healing;;158;152;133;;;;93;2;0
 bracelet;Abyssos Amulet of Healing;;167;162;95;;;136;;2;0
 bracelet;Augmented Lunar Envoy's Bracelets of Healing;;167;162;;;136;95;;2;0
 bracelet;Purgatory Amulet of Healing;;149;142;;;91;;130;1;0
 bracelet;Rinascita Bracelet of Healing;;149;142;91;;130;;;1;1
+bracelet;Augmented Rinascita Bracelet of Healing;;158;152;93;;133;;;2;0
 ring;Abyssos Ring of Healing;;167;162;;;136;95;;2;0
 ring;Augmented Lunar Envoy's Ring of Healing;;167;162;136;;95;;;2;0
 ring;Purgatory Ring of Healing;;149;142;;;91;;130;1;0
 ring;Rinascita Ring of Healing;;149;142;;;130;91;;1;1
+ring;Augmented Rinascita Ring of Healing;;158;152;;;133;93;;2;0
 food;Carrot Pudding;;;;;;58;97;;;
 food;Garlean Pizza;;;;;;97;;58;;
 food;Gyros;;;;96;;;58;;;
